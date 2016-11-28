@@ -46,8 +46,12 @@ void setup() {
 
 void loop() {
     if (isGameOn) {
+	timer_counter = 0; // figyelni kell arra, hogy itt újra, és újra elinduló játék van, mindent alaphelyzetbe kell állítani. 
       if (interruptFlag == true) {
         electrodeRegister = cap.readRegister8(0x00);
+		
+		// jó lenne, ha ezeket a számokat maszkokká alakítanád, hogy akkor is működjön a kód, ha véletlenül a többit megnyomják. (de ez nem prioritás)
+		// lesz még itt LED kezelés is, arról később. 
         uint8_t touchedElectrode = electrodeRegister - 8;
 
         if ((touchedElectrode == 32 || touchedElectrode == 2) && lastTouched != electrodeRegister) {
@@ -55,6 +59,7 @@ void loop() {
           lastTouched = electrodeRegister;
           Serial.println(counter);
         }
+		interruptFlag = false; // ez fontos, különben örökké belépsz ebbe az ágba
 
       }
       delay(50);
@@ -66,7 +71,7 @@ void loop() {
       counter = 0;
     } else {
       while (Serial.available() && isGameOn == false) {
-        start = (char)Serial.read();
+        start = (char)Serial.read(); // ha működik a cucc, akkor majd mutatom a netes sémát, és átalakítjuk. 
         if  (start == "x") {
           isGameOn = true;
           Serial.println("game started.");
@@ -81,11 +86,10 @@ void interruptHappened() {
 }
 
 void timerHandler() {
-  timer_counter++;
+if(isGameOn){ // ha csak akkor számolsz, ha játék van, akkor, ha eléred a tizet, mindenképp vége a játéknak
+  timer_counter++; // ez az interrupt rutin eléggé káoszos :D 
   if (timer_counter == 10) {
-    if (isGameOn) { isGameOver = true; }
-    isGameOn = false;
-    timer_counter = 0;
-    Timer1.stop();
+  isGameOver = true; 
+   // Timer1.stop(); // nem kell megállítani, majd ha kezdődik a játék, indítod előröl 
   }
 }

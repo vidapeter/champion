@@ -13,9 +13,14 @@ bool isLedOn = false;
 bool gameTimeCounter = false;
 bool waiting = false;
 String startButton = "";
-float start = 0;
+float start = 0; //float helyett long típust használj. 
 float stop = 0;
 float result = 0;
+
+/* Szóval az kellene, hogy a timer 30 másodpercig jár, ami alatt 3x próbálhatod meg a játékot, és a legjobb eredményed
+üldi fel a szerverre. Ha a timer lejárt, vagy a három próbálkozás végére értél, akkor lezárod a játékot. 
+
+*/
 
 void timerHandler() {
   timerCounter++;
@@ -50,7 +55,7 @@ void loop() {
 
       if (interruptFlag) {
         stop = millis();
-        digitalWrite(13, LOW);
+        digitalWrite(13, LOW); // érdemes #define-al elnevezni a pineket, majd ha később fixáljuk a pontosakat
         isGameOn = false;
         isGameOver = true;
         interruptFlag = false;
