@@ -5,6 +5,10 @@
 #include "PinChangeInterruptSettings.h"
 #include <TimerOne.h>
 
+#define ledPin 13
+#define buttonPin 8
+
+
 bool interruptFlag = false;
 int timerCounter = 0;
 bool isGameOn = false;
@@ -13,40 +17,25 @@ bool isLedOn = false;
 bool gameTimeCounter = false;
 bool waiting = false;
 String startButton = "";
-float start = 0; //float helyett long típust használj. 
-float stop = 0;
-float result = 0;
-
-/* Szóval az kellene, hogy a timer 30 másodpercig jár, ami alatt 3x próbálhatod meg a játékot, és a legjobb eredményed
-üldi fel a szerverre. Ha a timer lejárt, vagy a három próbálkozás végére értél, akkor lezárod a játékot. 
-
-*/
-
-void timerHandler() {
-  timerCounter++;
-  Serial.println(timerCounter);
-  if (timerCounter == 2) {
-    isGameOver = true;
-    isGameOn = false;
-    timerCounter = 0;
-  } else {
-    isGameOver = false;
-  }
-}
+long start = 0;
+long stop = 0;
+long result = 0;
+int roundCounter = 0;
+long results[3];
 
 void setup() {
   while (!Serial);
   Serial.begin(9600);
   Serial.println("Reaction time-test, be ready!!");
 
-  pinMode(8, INPUT_PULLUP);
-  pinMode(13, OUTPUT);
+  pinMode(buttonPin, INPUT_PULLUP);
+  pinMode(ledPin, OUTPUT);
 
 
-  attachPCINT(digitalPinToPCINT(8), buttonPushed, FALLING);
+  attachPCINT(digitalPinToPCINT(buttonPin), buttonPushed, FALLING);
 
   Timer1.initialize();
-  Timer1.setPeriod(5000000); // 5 mp
+  Timer1.setPeriod(5000000);
   Timer1.attachInterrupt(timerHandler);
 }
 
@@ -54,35 +43,74 @@ void loop() {
     if (isGameOn) {
 
       if (interruptFlag) {
-        stop = millis();
-        digitalWrite(13, LOW); // érdemes #define-al elnevezni a pineket, majd ha később fixáljuk a pontosakat
-        isGameOn = false;
-        isGameOver = true;
-        interruptFlag = false;
-      }
 
+        roundCounter++;
+
+        stop = millis();
+        digitalWrite(ledPin, LOW);
+        interruptFlag = false;
+        results[roundCounter-1] = stop - start;
+        
+        if (roundCounter < 3) {
+          initiateLed();
+        }
+        if (roundCounter == 3) {
+          roundCounter = 0;
+          interruptFlag = false;
+          isGameOver = true;
+          isGameOn = false;
+          interruptFlag = false;
+        }
+      }
     } else if (isGameOver) {
       isGameOver = false;
       Timer1.stop();
       Serial.println("GAME OVER");
-      result = stop - start;
-      Serial.println("Your result is: " + (String)(result/1000) + " sec");
+      result = getMinResult(results);
+      Serial.println("Your result is: " + (String)(float(result)/1000) + " sec");
     } else {
       while (Serial.available() && isGameOn == false) {
          startButton = (char)Serial.read();
         if  (startButton == "x") {
           isGameOn = true;
-          waiting = true;
           Serial.println("game started.");
-          delay(random(2000,5000)); 
-          digitalWrite(13, HIGH);
-          start = millis();
+          initiateLed();
         }
       }
     }
-    delay(50);
+    delay(5);
 }
 
 void buttonPushed() {
-  interruptFlag = true;
+  if (digitalRead(ledPin) == HIGH) { //only after the led is on..
+    interruptFlag = true;
+  }
+}
+
+void initiateLed() {
+  delay(random(2000,5000));
+  digitalWrite(ledPin, HIGH);
+  start = millis();
+}
+
+void timerHandler() {
+  timerCounter++;
+  if (timerCounter == 6) {
+    isGameOver = true;
+    isGameOn = false;
+    timerCounter = 0;
+    digitalWrite(ledPin,LOW);
+  } else {
+    isGameOver = false;
+  }
+}
+
+long getMinResult(long results[]) {
+  long min = results[0];
+  for (int i=0;i<3;i++) {
+    if (min > results[i]) {
+      min = results[i];
+    }
+  }
+  return min;
 }
