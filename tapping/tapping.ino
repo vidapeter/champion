@@ -93,3 +93,4 @@ if(isGameOn){ // ha csak akkor számolsz, ha játék van, akkor, ha eléred a ti
    // Timer1.stop(); // nem kell megállítani, majd ha kezdődik a játék, indítod előröl 
   }
 }
+}
