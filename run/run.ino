@@ -1,4 +1,4 @@
-#include <Wire.h>
+
 #include "PinChangeInterrupt.h"
 #include "PinChangeInterruptBoards.h"
 #include "PinChangeInterruptPins.h"
@@ -19,12 +19,15 @@ bool finishFlag = false;
 String startButton = "";
 long start = 0;
 long stop = 0;
-long result = 0;
+uint16_t result = 0;
+//#define DEVMODE
 
 void setup() {
+  #if defined(DEVMODE)
   while (!Serial);
   Serial.begin(9600);
   Serial.println("Run Forest, run!!");
+  #endif
 
   pinMode(startPin, INPUT_PULLUP);
   pinMode(finishPin, INPUT_PULLUP);
