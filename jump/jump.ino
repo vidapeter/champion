@@ -5,7 +5,7 @@
 #include "PinChangeInterruptSettings.h"
 #include <TimerOne.h>
 
-#define ledPin 13
+#define greenPin 12
 #define rightButtonPin 8
 #define leftButtonPin 7
 
@@ -43,7 +43,7 @@ void loop() {
     if (isGameOn) {
 
       if (rightButtonFlag || leftButtonFlag) {
-
+        digitalWrite(greenPin, LOW);
         stop = millis();
         isGameOver = true;
         isGameOn = false;
@@ -61,6 +61,7 @@ void loop() {
          startButton = (char)Serial.read();
         if  (startButton == "x") {
           if (leftButtonFlag && rightButtonFlag) {
+            digitalWrite(greenPin, HIGH);
             start = millis();
             isGameOn = true;
             // green led would be useful.
@@ -80,7 +81,6 @@ void timerHandler() {
     isGameOver = true;
     isGameOn = false;
     timerCounter = 0;
-    digitalWrite(ledPin,LOW);
   } else {
     isGameOver = false;
   }
