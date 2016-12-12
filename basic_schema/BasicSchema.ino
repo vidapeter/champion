@@ -34,6 +34,7 @@ int error = 0;
 #endif
 
 String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
+String ready2 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 
@@ -207,12 +208,11 @@ void ConnectServer(){ //WARNING: BLOCKING STATEMENT
 	if (!client.connected()) {
 		client.stop();
 		while (!client.connect(serverIP, serverPort));
-		client.println(ready);
+		client.println(ready2);
 
 	}
 
 }
-
 
 void clearData() {
 	//deviceID = 0;
@@ -273,7 +273,12 @@ uint8_t sendMessageWithTimeout(String message) {
 		return client.connected();
 	}
 
+uint8_t sendMessage(String message) {
+	ConnectServer();
+	client.println(message);
+	return client.connected();
 
+}
 
 
 
@@ -309,7 +314,7 @@ void loop() {
 				Serial.println("Game started");
 #endif
 
-				sendMessageWithTimeout(ack); //as ACK
+				sendMessage(ack); //simple ack message, no answer 
 				game_started = true;
 				Timer1.setPeriod(5000000);
 				Timer1.restart();
