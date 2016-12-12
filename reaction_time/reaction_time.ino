@@ -5,7 +5,8 @@
 #include "PinChangeInterruptSettings.h"
 #include <TimerOne.h>
 
-#define ledPin 13
+#define redPin 13
+#define greenPin 12
 #define buttonPin 8
 
 
@@ -29,7 +30,8 @@ void setup() {
   Serial.println("Reaction time-test, be ready!!");
 
   pinMode(buttonPin, INPUT_PULLUP);
-  pinMode(ledPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
+  pinMode(redPin, OUTPUT);
 
 
   attachPCINT(digitalPinToPCINT(buttonPin), buttonPushed, FALLING);
@@ -41,16 +43,16 @@ void setup() {
 
 void loop() {
     if (isGameOn) {
-
       if (interruptFlag) {
 
         roundCounter++;
 
         stop = millis();
-        digitalWrite(ledPin, LOW);
+        digitalWrite(redPin, HIGH);
+        digitalWrite(greenPin, LOW);
         interruptFlag = false;
         results[roundCounter-1] = stop - start;
-        
+
         if (roundCounter < 3) {
           initiateLed();
         }
@@ -71,6 +73,7 @@ void loop() {
     } else {
       while (Serial.available() && isGameOn == false) {
          startButton = (char)Serial.read();
+         digitalWrite(redPin, HIGH);
         if  (startButton == "x") {
           isGameOn = true;
           Serial.println("game started.");
@@ -82,14 +85,15 @@ void loop() {
 }
 
 void buttonPushed() {
-  if (digitalRead(ledPin) == HIGH) { //only after the led is on..
+  if (digitalRead(greenPin) == HIGH) { //only after the led is on..
     interruptFlag = true;
   }
 }
 
 void initiateLed() {
   delay(random(2000,5000));
-  digitalWrite(ledPin, HIGH);
+  digitalWrite(greenPin, HIGH);
+  digitalWrite(redPin, LOW);
   start = millis();
 }
 
@@ -99,7 +103,8 @@ void timerHandler() {
     isGameOver = true;
     isGameOn = false;
     timerCounter = 0;
-    digitalWrite(ledPin,LOW);
+    digitalWrite(redPin,HIGH);
+    digitalWrite(greenPin,LOW);
   } else {
     isGameOver = false;
   }
