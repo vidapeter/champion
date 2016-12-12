@@ -14,8 +14,8 @@ volatile int timer = 0;
 String startButton = "";
 
 static int data[MAX_CYCLE-1]; //TODO: init
-static int result[MAX_CYCLE-1];
-int faults;
+static int results[MAX_CYCLE-1];
+int result;
 
 bool timerAction = false;
 bool isGameOn = false;
@@ -63,24 +63,25 @@ void loop() {
     if(timerAction){
       if(isRightAction ^ isLeftAction){
         if(isLeftAction){
-          result[tick] = 1;
+          results[tick] = 1;
           isLeftAction = false;
         }
         if(isRightAction){
-          result[tick] = 2;
+          results[tick] = 2;
           isLeftAction = false;
         }
-      } else {result[tick] = 0;}
+      } else {results[tick] = 0;}
     }
   } else if (isGameOver) {
       isGameOver = false;
       Serial.println("GAME OVER");
-      faults = checkFaults(data,result);
-      Serial.println("You had " + (String)(faults) + " faults.");
+      result = calculateResult(data,results);
+      Serial.println("Your result is: " + (String)(result));
   } else {
     while (Serial.available() && isGameOn == false) {
        startButton = (char)Serial.read();
       if (startButton == "x") {
+        result = 0;
         isGameOn = true;
         Serial.println("game started.");
       }
@@ -89,12 +90,24 @@ void loop() {
   delay(5);
 }
 
-int checkFaults(int data[], int result[]) {
-  int faults = 0;
+static int calculateResult(int data[], int results[]) {
   for (int i=0;i<MAX_CYCLE;i++) {
-    if (data[i] != result[i]) {
-      faults++;
+
+    switch (data[i]) {
+      case 1:
+        checkResult(1, i);
+        break;
+      case 2:
+        checkResult(2, i);
+        break;
+      default:
+        break;
     }
   }
-  return faults;
+}
+
+void checkResult(int leg, int index) {
+  if (results[index-1] == leg || results[index] == leg || results[index+1] == leg) {
+    result++;
+  }
 }
