@@ -5,7 +5,11 @@
 #include "PinChangeInterruptPins.h"
 #include "PinChangeInterruptSettings.h"
 #include <TimerOne.h>
+#include "MsTimer2.h"
 
+#define rightLED 13
+#define middLED 12
+#define leftLED 11
 
 Adafruit_MPR121 cap = Adafruit_MPR121();
 
@@ -15,18 +19,29 @@ Adafruit_MPR121 cap = Adafruit_MPR121();
 
 volatile int counter = 0;
 int timer_counter = 0;
-bool interruptFlag = false;
+bool touchedFlag = false;
 bool isGameOn = false;
 bool isGameOver = false;
+String valami = "alma";
 String start = "";
 uint8_t electrodeRegister;
 
 uint8_t lastTouched;
 
+void flash() {
+ digitalWrite(rightLED, LOW);
+ digitalWrite(leftLED, LOW);
+}
+
+
 void setup() {
   while (!Serial);
   Serial.begin(9600);
   Serial.println("Adafruit MPR121 Capacitive Touch sensor test");
+
+  pinMode(leftLED,OUTPUT);
+  pinMode(middLED,OUTPUT);
+  pinMode(rightLED,OUTPUT);
 
   if (!cap.begin(0x5A)) {
     Serial.println("MPR121 not found, check wiring?");
@@ -36,34 +51,43 @@ void setup() {
 
   pinMode(8, INPUT_PULLUP);
 
-  attachPCINT(digitalPinToPCINT(8), interruptHappened, FALLING);
+  attachPCINT(digitalPinToPCINT(8), touched, FALLING);
 
   Timer1.initialize();
   Timer1.setPeriod(1000000); // 1 mp
   Timer1.attachInterrupt(timerHandler);
 
+  MsTimer2::set(50,flash);
+
 }
 
 void loop() {
     if (isGameOn) {
-	timer_counter = 0; // figyelni kell arra, hogy itt újra, és újra elinduló játék van, mindent alaphelyzetbe kell állítani. 
-      if (interruptFlag == true) {
+      if (touchedFlag == true) {
         electrodeRegister = cap.readRegister8(0x00);
-		
-		// jó lenne, ha ezeket a számokat maszkokká alakítanád, hogy akkor is működjön a kód, ha véletlenül a többit megnyomják. (de ez nem prioritás)
-		// lesz még itt LED kezelés is, arról később. 
+
+        (electrodeRegister >= 8 && electrodeRegister != 32) ? digitalWrite(middLED, HIGH) : digitalWrite(middLED, LOW);
+
         uint8_t touchedElectrode = electrodeRegister - 8;
 
         if ((touchedElectrode == 32 || touchedElectrode == 2) && lastTouched != electrodeRegister) {
+          MsTimer2::stop();
+          if (touchedElectrode == 32) {
+            digitalWrite(leftLED,HIGH);
+            MsTimer2::start();
+          } else if (touchedElectrode == 2) {
+            digitalWrite(rightLED,HIGH);
+            MsTimer2::start();
+          }
           counter++;
           lastTouched = electrodeRegister;
           Serial.println(counter);
         }
-		interruptFlag = false; // ez fontos, különben örökké belépsz ebbe az ágba
 
       }
       delay(50);
     } else if (isGameOver) {
+      digitalWrite(middLED, LOW);
       isGameOn = false;
       isGameOver = false;
       Serial.println("GAME OVER");
@@ -71,7 +95,7 @@ void loop() {
       counter = 0;
     } else {
       while (Serial.available() && isGameOn == false) {
-        start = (char)Serial.read(); // ha működik a cucc, akkor majd mutatom a netes sémát, és átalakítjuk. 
+        start = (char)Serial.read();
         if  (start == "x") {
           isGameOn = true;
           Serial.println("game started.");
@@ -81,16 +105,18 @@ void loop() {
     }
 }
 
-void interruptHappened() {
-  interruptFlag = true;
+
+void touched() {
+  touchedFlag = true;
 }
 
+
 void timerHandler() {
-if(isGameOn){ // ha csak akkor számolsz, ha játék van, akkor, ha eléred a tizet, mindenképp vége a játéknak
-  timer_counter++; // ez az interrupt rutin eléggé káoszos :D 
+  timer_counter++;
   if (timer_counter == 10) {
-  isGameOver = true; 
-   // Timer1.stop(); // nem kell megállítani, majd ha kezdődik a játék, indítod előröl 
+    if (isGameOn) { isGameOver = true; }
+    isGameOn = false;
+    timer_counter = 0;
+    Timer1.stop();
   }
-}
 }
