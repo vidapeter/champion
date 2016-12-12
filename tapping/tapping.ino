@@ -11,6 +11,11 @@
 #define middLED 12
 #define leftLED 11
 
+#if 0
+#define DEVMODE
+#endif
+
+
 Adafruit_MPR121 cap = Adafruit_MPR121();
 
 // Right: PIN1 -> 2
@@ -22,8 +27,10 @@ int timer_counter = 0;
 bool touchedFlag = false;
 bool isGameOn = false;
 bool isGameOver = false;
+#ifdef DEVMODE
 String valami = "alma";
 String start = "";
+#endif
 uint8_t electrodeRegister;
 
 uint8_t lastTouched;
@@ -35,20 +42,26 @@ void flash() {
 
 
 void setup() {
+  #ifdef DEVMODE
   while (!Serial);
   Serial.begin(9600);
   Serial.println("Adafruit MPR121 Capacitive Touch sensor test");
-
+  #endif
+  
   pinMode(leftLED,OUTPUT);
   pinMode(middLED,OUTPUT);
   pinMode(rightLED,OUTPUT);
 
   if (!cap.begin(0x5A)) {
+    #ifdef DEVMODE
     Serial.println("MPR121 not found, check wiring?");
     while (1);
+    #endif
   }
+  #ifdef DEVMODE
   Serial.println("MPR121 found!");
-
+  #endif
+  
   pinMode(8, INPUT_PULLUP);
 
   attachPCINT(digitalPinToPCINT(8), touched, FALLING);
@@ -90,10 +103,14 @@ void loop() {
       digitalWrite(middLED, LOW);
       isGameOn = false;
       isGameOver = false;
+      #ifdef DEVMODE
       Serial.println("GAME OVER");
       Serial.println("Your result is: " + (String)(counter));
+      #endif
       counter = 0;
-    } else {
+    } 
+    #ifdef DEVMODE
+    else {
       while (Serial.available() && isGameOn == false) {
         start = (char)Serial.read();
         if  (start == "x") {
@@ -103,6 +120,7 @@ void loop() {
         }
       }
     }
+    #endif
 }
 
 

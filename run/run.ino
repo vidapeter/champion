@@ -9,6 +9,9 @@
 #define startPin 8
 #define finishPin 7
 
+#if 1
+#define DEVMODE
+#endif
 
 int timerCounter = 0;
 bool isGameOn = false;
@@ -20,7 +23,7 @@ String startButton = "";
 long start = 0;
 long stop = 0;
 uint16_t result = 0;
-//#define DEVMODE
+
 
 void setup() {
   #if defined(DEVMODE)
@@ -54,10 +57,14 @@ void loop() {
     } else if (isGameOver) {
       isGameOver = false;
       Timer1.stop();
-      Serial.println("GAME OVER");
       result = stop - start;
+      #ifdef DEVMODE
+      Serial.println("GAME OVER");
       Serial.println("Your result is: " + (String)(float(result)/1000));
-    } else {
+      #endif
+    } 
+    #ifdef DEVMODE
+    else {
       while (Serial.available() && isGameOn == false) {
          startButton = (char)Serial.read();
         if  (startButton == "x") {
@@ -70,6 +77,7 @@ void loop() {
         }
       }
     }
+    #endif
     delay(5);
 }
 

@@ -5,6 +5,10 @@
 #include "PinChangeInterruptSettings.h"
 #include <TimerOne.h>
 
+#if 1
+#define DEVMODE
+#endif
+
 #define redPin 13
 #define greenPin 12
 #define buttonPin 8
@@ -25,9 +29,11 @@ int roundCounter = 0;
 long results[3];
 
 void setup() {
+  #ifdef DEVMODE
   while (!Serial);
   Serial.begin(9600);
   Serial.println("Reaction time-test, be ready!!");
+  #endif
 
   pinMode(buttonPin, INPUT_PULLUP);
   pinMode(greenPin, OUTPUT);
@@ -67,10 +73,17 @@ void loop() {
     } else if (isGameOver) {
       isGameOver = false;
       Timer1.stop();
+      #ifdef DEVMODE
       Serial.println("GAME OVER");
+      #endif
       result = getMinResult(results);
-      Serial.println("Your result is: " + (String)(float(result)/1000) + " sec");
-    } else {
+      #ifdef DEVMODE
+      Serial.println("Your result is: " + (String)(result) + " sec");
+      #endif
+      
+    } 
+    #ifdef DEVMODE
+    else {
       while (Serial.available() && isGameOn == false) {
          startButton = (char)Serial.read();
          digitalWrite(redPin, HIGH);
@@ -81,6 +94,7 @@ void loop() {
         }
       }
     }
+    #endif
     delay(5);
 }
 

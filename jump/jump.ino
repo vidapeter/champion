@@ -9,6 +9,9 @@
 #define rightButtonPin 8
 #define leftButtonPin 7
 
+#if 1
+#define DEVMODE
+#endif
 
 bool interruptFlag = false;
 int timerCounter = 0;
@@ -17,6 +20,8 @@ bool isGameOver = false;
 bool rightButtonFlag = false;
 bool leftButtonFlag = false;
 
+
+
 String startButton = "";
 long start = 0;
 long stop = 0;
@@ -24,10 +29,12 @@ long result = 0;
 int roundCounter = 0;
 
 void setup() {
+  #ifdef DEVMODE
   while (!Serial);
   Serial.begin(9600);
   Serial.println("Attention! The game will start after you step into the white circles.");
-
+  #endif
+  
   pinMode(leftButtonPin, INPUT_PULLUP);
   pinMode(rightButtonPin, INPUT_PULLUP);
 
@@ -53,10 +60,14 @@ void loop() {
     } else if (isGameOver) {
       isGameOver = false;
       Timer1.stop();
-      Serial.println("GAME OVER");
       result = stop - start;
+      #ifdef DEVMODE
+      Serial.println("GAME OVER");
       Serial.println("Your result is: " + (String)(float(result)/1000));
-    } else {
+      #endif
+    } 
+    #ifdef DEVMODE
+    else {
       while (Serial.available() && isGameOn == false) {
          startButton = (char)Serial.read();
         if  (startButton == "x") {
@@ -72,6 +83,7 @@ void loop() {
         }
       }
     }
+    #endif
     delay(5);
 }
 

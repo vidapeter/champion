@@ -4,6 +4,9 @@
 #include <PinChangeInterruptPins.h>
 #include <PinChangeInterruptSettings.h>
 
+#if 1
+#define DEVMODE
+#endif
 
 #define X0 2
 #define X1 3
@@ -22,6 +25,7 @@
 #define OUT	10
 
 String inputString = "";
+
 
 int counter = 0;
 int timer_counter = 0;
@@ -173,15 +177,18 @@ void setRandomAddress() {
 	address = y;
 	address = address << 4;
 	address = address | x;
-
+#ifdef DEVMODE
 	Serial.print("Address: ");
 	Serial.println( address,BIN);
+ #endif
 	zeroOut();
 	for (int i = 2; i < 10; i++) {
 		uint16_t temp = (~((address >> (i - 2)) & B00000001))&B00000001;
 		digitalWrite(i,temp);
+   #ifdef DEVMODE
 		Serial.print("Pin " + (String)i + " value ");
 		Serial.println(temp, BIN);
+    #endif
 
 	}
 
@@ -197,7 +204,9 @@ void loop()
 
 		if (isButtonPushed) {
 			counter++;
+      #ifdef DEVMODE
       Serial.println("Actual pin" + (String)(x_high)+ " value: "+ (String)(digitalRead(x_high)));
+      #endif
 			setRandomAddress();
 			isButtonPushed = false;
 			//pulse for counter
@@ -208,10 +217,13 @@ void loop()
 
 		if (isGameOver) {
 			//process things, display result.
+     #ifdef DEVMODE
 			Serial.println("Game ended with " +(String) counter + " points");
+     #endif
 			stop = millis();
+      #ifdef DEVMODE
 			Serial.println("Seconds elapsed: " + (String)((stop - start)/1000));
-
+      #endif
 	
 
 		
@@ -228,7 +240,7 @@ void loop()
 
 	}
 
-
+#ifdef DEVMODE
 	if (serialEventFlag) {
 
 		if (inputString.substring(0, 1) == "X") {
@@ -264,9 +276,10 @@ void loop()
 		inputString = "";
 
 	}
-
+#endif
 }
 
+#ifdef DEVMODE
 void serialEvent() {
 		int i = 0;
 		while (Serial.available()) {
@@ -285,3 +298,4 @@ void serialEvent() {
 		}
 		
 	}
+ #endif
