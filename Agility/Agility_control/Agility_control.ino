@@ -7,11 +7,17 @@
 volatile int tick = 0;
 volatile int timer = 0;
 
+#if 1
+#define DEVMODE
+#endif
+
 #define SENSOR1 3
 #define SENSOR2 4
 #define MAX_CYCLE 30*4
 
+#ifdef DEVMODE
 String startButton = "";
+#endif
 
 static int data[MAX_CYCLE-1]; //TODO: init
 static int results[MAX_CYCLE-1];
@@ -40,7 +46,7 @@ void rightAction(){
 
 void leftAction(){
   isLeftAction = true;
-  isGameOn = false;
+  isGameOn = false; // ??
 }
 
 void setup() {
@@ -74,10 +80,14 @@ void loop() {
     }
   } else if (isGameOver) {
       isGameOver = false;
-      Serial.println("GAME OVER");
       result = calculateResult(data,results);
+      #ifdef DEVMODE
+      Serial.println("GAME OVER");
       Serial.println("Your result is: " + (String)(result));
-  } else {
+      #endif
+  } 
+  #ifdef DEVMODE
+  else {
     while (Serial.available() && isGameOn == false) {
        startButton = (char)Serial.read();
       if (startButton == "x") {
@@ -87,6 +97,7 @@ void loop() {
       }
     }
   }
+  #endif
   delay(5);
 }
 
