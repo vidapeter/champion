@@ -1,11 +1,11 @@
-#include <Wire.h>
+
 #include "PinChangeInterrupt.h"
 #include "PinChangeInterruptBoards.h"
 #include "PinChangeInterruptPins.h"
 #include "PinChangeInterruptSettings.h"
 #include <TimerOne.h>
 
-#if 1
+#if 0
 #define DEVMODE
 #endif
 
