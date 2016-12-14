@@ -38,7 +38,7 @@
 /*Variables*/
 
 char json[150];
-uint32_t userID = 0;
+String userID = "";
 volatile uint8_t type = 0;
 volatile uint16_t result1 = 0;
 volatile uint16_t result2 = 0;
@@ -49,7 +49,7 @@ long start = 0;
 long stop = 0;
 long result = 0;
 int roundCounter = 0;
-long results[3];
+long results[3] = {0,0,0};
 /*End of game defined variables*/
 
 #ifdef DEVMODE
@@ -199,7 +199,8 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
 #endif
       //deviceID = root["DeviceId"];
       //if (deviceID == hardware_ID) {
-      userID = root["UserId"];
+     String uID = root[(String)("UserId")];
+     userID = uID;
       //type = root["Type"];
       result1 = root["Result1"];
       status = root["Status"];
@@ -252,7 +253,7 @@ void ConnectServer(){ //WARNING: BLOCKING STATEMENT
 
 void clearData() {
   //deviceID = 0;
-  userID = 0;
+  userID = "";
   type = 0; 
   result1 = 0;
 
@@ -332,8 +333,9 @@ void initiateLed() {
 }
 
 void timerHandler() {
+  if (game_started){
   timerCounter++;
-  if (timerCounter == 6) {
+  if (timerCounter == 4) {
     game_over = true;
     game_started = false;
     timerCounter = 0;
@@ -341,15 +343,17 @@ void timerHandler() {
     digitalWrite(greenPin,LOW);
   } else {
     game_over = false;
+    }
   }
 }
 
 long getMinResult(long results[]) {
   long min = results[0];
   for (int i=0;i<3;i++) {
-    if (min > results[i]) {
+    if (min > results[i] && (results[i] != 0)) {
       min = results[i];
     }
+    results[i] = 0;
   }
   return min;
 }
@@ -388,12 +392,15 @@ void loop() {
         sendMessage(ack); //simple ack message, no answer 
         game_started = true;
         Timer1.setPeriod(5000000);
+        Timer1.attachInterrupt(timerHandler);
         Timer1.restart();
         idle_state = false;
         valid_pkt_received = false;
         /*Game starting*/
          digitalWrite(redPin, HIGH);
          initiateLed();
+         timerFlag = false;
+         timeoutFlag = false;
 
         break;
       default:
@@ -454,11 +461,12 @@ if (game_over) {
     
     //end of game over handling
     result1 = getMinResult(results);
-    String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+",\"Result1\":" + (String)(result1)+"}";
+    String result = "{\"Type\":2,\"UserId\":" + userID+"\",\"Result1\":" + (String)(result1)+"}";
     sendMessageWithTimeout(result);
     game_over = false;
     idle_state = true;
     clearData();
+    
     
     
     
