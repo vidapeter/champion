@@ -92,8 +92,11 @@ void timerISR() {
 
 
 void timeout() {
+  if (game_started){
+    flash();
+  }else{
   timeoutFlag = true;
-  
+  }
 }
 /*Game specific ISR*/
 
@@ -405,10 +408,10 @@ void loop() {
           //MsTimer2::stop();
           if (touchedElectrode == 32) {
             digitalWrite(leftLED,HIGH);
-            //MsTimer2::start();
+            MsTimer2::start();
           } else if (touchedElectrode == 2) {
             digitalWrite(rightLED,HIGH);
-            //MsTimer2::start();
+            MsTimer2::start();
           }
           counter++;
           lastTouched = electrodeRegister;
