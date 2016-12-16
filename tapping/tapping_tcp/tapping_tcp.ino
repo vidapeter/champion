@@ -12,12 +12,12 @@
 #include <ArduinoJson.h>
 #include <TimerOne.h>
 #include <MsTimer2.h>
-/* Additional libraries */
+#include <Wire.h>
+#include "Adafruit_MPR121.h"
 #include "PinChangeInterrupt.h"
 #include "PinChangeInterruptBoards.h"
 #include "PinChangeInterruptPins.h"
 #include "PinChangeInterruptSettings.h"
-/*End of additional libraries /*
 
 #if 0
 #define DEVMODE
@@ -29,11 +29,12 @@
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
-/* Pin definitions */
+/*Game specific defines*/
+#define rightLED 13
+#define middLED 12
+#define leftLED 11
+#define INT 8
 
-#define redPin 6
-#define greenPin 7
-#define buttonPin 8
 
 /*Variables*/
 
@@ -43,14 +44,14 @@ volatile uint8_t type = 0;
 volatile uint16_t result1 = 0;
 volatile uint16_t result2 = 0;
 volatile uint8_t status = 0;
-/*Game defined variables*/
-int timerCounter = 0;
-long start = 0;
-long stop = 0;
-long result = 0;
-int roundCounter = 0;
-long results[3] = {0,0,0};
-/*End of game defined variables*/
+
+/*Game specific variables*/
+Adafruit_MPR121 cap = Adafruit_MPR121();
+volatile int counter = 0;
+int timer_counter = 0;
+bool touchedFlag = false;
+uint8_t electrodeRegister;
+uint8_t lastTouched;
 
 #ifdef DEVMODE
 int error = 0;
@@ -76,17 +77,11 @@ bool game_over = false;       //true, if game ended
 bool idle_state = true;       //true, if no game runs, and waits for UDP package
 bool timerFlag = false;
 bool timeoutFlag = false;
-/*Additional booleans*/
-bool interruptFlag = false;
-bool isLedOn = false;
-bool gameTimeCounter = false;
-bool waiting = false;
-/*End of additional booleans*/
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 67); // server IP address
-unsigned int serverPort = 50505;   //server remote port to connect to 
+IPAddress serverIP(192, 168, 1, 114); // server IP address
 IPAddress ownIP(192, 168, 2, hardware_ID);
+unsigned int serverPort = 6280;   //server remote port to connect to 
 EthernetClient client;
 
 //interrupt functions
@@ -98,6 +93,12 @@ void timerISR() {
 
 void timeout() {
   timeoutFlag = true;
+  
+}
+/*Game specific ISR*/
+
+void touched() {
+  touchedFlag = true;
 }
 
 
@@ -115,12 +116,17 @@ void setup() {
 #if defined(DEVMODE)
   Serial.begin(9600);
 #endif
-  /*Pin setup*/
-  pinMode(buttonPin, INPUT);
-  pinMode(greenPin, OUTPUT);
-  pinMode(redPin, OUTPUT);
+//device setup
 
-  attachPCINT(digitalPinToPCINT(buttonPin), buttonPushed, FALLING);
+if (!cap.begin(0x5A)) {
+    #ifdef DEVMODE
+    Serial.println("MPR121 not found, check wiring?");
+    while (1);
+    #endif
+  }
+  
+  pinMode(INT, INPUT_PULLUP);
+  attachPCINT(digitalPinToPCINT(INT), touched, FALLING);
 
   MsTimer2::set(ACK_TIMEOUT, timeout); // 500ms period
   timerInit();
@@ -140,7 +146,7 @@ void timerInit() {
 }
 
 void initEthernet() {
-  Ethernet.begin(mac); // we use DHCP
+  Ethernet.begin(mac,ownIP); // we use DHCP
 
 
   delay(1000); // give the Ethernet shield a second to initialize
@@ -153,7 +159,8 @@ void initEthernet() {
     #if defined(DEVMODE)
     Serial.println("connected");
     #endif
- 
+    // Make a HTTP request:
+    //client.println("Hello, a nevem János");
   }
   else {
     // if you didn't get a connection to the server:
@@ -200,8 +207,8 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
 #endif
       //deviceID = root["DeviceId"];
       //if (deviceID == hardware_ID) {
-     String uID = root[(String)("UserId")];
-     userID = uID;
+      String uID = root[(String)("UserId")];
+      userID = uID;
       //type = root["Type"];
       result1 = root["Result1"];
       status = root["Status"];
@@ -318,47 +325,13 @@ uint8_t sendMessage(String message) {
 
 }
 
-/*Game functions only used in looop*/
-
-void buttonPushed() {
-  if (digitalRead(greenPin) == HIGH) { //only after the led is on..
-    interruptFlag = true;
-  }
+/*Game specific functions*/
+void flash() {
+ digitalWrite(rightLED, LOW);
+ digitalWrite(leftLED, LOW);
 }
 
-void initiateLed() {
-  delay(random(2000,5000));
-  digitalWrite(greenPin, HIGH);
-  digitalWrite(redPin, LOW);
-  start = millis();
-}
 
-void timerHandler() {
-  if (game_started){
-  timerCounter++;
-  if (timerCounter == 4) {
-    game_over = true;
-    game_started = false;
-    timerCounter = 0;
-    digitalWrite(redPin,HIGH);
-    digitalWrite(greenPin,LOW);
-  } else {
-    game_over = false;
-    }
-  }
-}
-
-long getMinResult(long results[]) {
-  long min = results[0];
-  for (int i=0;i<3;i++) {
-    if (min > results[i] && (results[i] != 0)) {
-      min = results[i];
-    }
-    results[i] = 0;
-  }
-  return min;
-}
-/*End of game functions*/
 
 
 void loop() {
@@ -367,7 +340,10 @@ void loop() {
 
   if (idle_state) {
 
-
+#ifdef DEVMODE
+    //Serial.println("Idle state");
+    //delay(50);
+#endif
 
     game_started = false;
     int status = 0;
@@ -393,15 +369,9 @@ void loop() {
         sendMessage(ack); //simple ack message, no answer 
         game_started = true;
         Timer1.setPeriod(5000000);
-        Timer1.attachInterrupt(timerHandler);
         Timer1.restart();
         idle_state = false;
         valid_pkt_received = false;
-        /*Game starting*/
-         digitalWrite(redPin, HIGH);
-         initiateLed();
-         timerFlag = false;
-         timeoutFlag = false;
 
         break;
       default:
@@ -419,55 +389,61 @@ void loop() {
   if (game_started) {
     //start and handle the game here
 
-
-
-
 #ifdef DEVMODE
     Serial.println("Game is running");
 #endif
 
+      if (touchedFlag) {
+        touchedFlag = false;
+        electrodeRegister = cap.readRegister8(0x00);
 
+        (electrodeRegister >= 8 && electrodeRegister != 32) ? digitalWrite(middLED, HIGH) : digitalWrite(middLED, LOW);
 
+        uint8_t touchedElectrode = electrodeRegister - 8;
 
-
-    if (interruptFlag) {
-      // handle timer interrupt here
-       roundCounter++;
-
-        stop = millis();
-        digitalWrite(redPin, HIGH);
-        digitalWrite(greenPin, LOW);
-        interruptFlag = false;
-        results[roundCounter-1] = stop - start;
-
-        if (roundCounter < 3) {
-          initiateLed();
+        if ((touchedElectrode == 32 || touchedElectrode == 2) && lastTouched != electrodeRegister) {
+          //MsTimer2::stop();
+          if (touchedElectrode == 32) {
+            digitalWrite(leftLED,HIGH);
+            //MsTimer2::start();
+          } else if (touchedElectrode == 2) {
+            digitalWrite(rightLED,HIGH);
+            //MsTimer2::start();
+          }
+          counter++;
+          lastTouched = electrodeRegister;
+          Serial.println(counter);
         }
-        if (roundCounter == 3) {
-          roundCounter = 0;
-          interruptFlag = false;
-          game_over = true;
-          game_started = false;
-          interruptFlag = false;
-        }
+
       }
+
+
+
+    if (timerFlag) {
+      // handle timer interrupt here
+
+      game_over = true;
+      game_started = false;
+      timerFlag = false;
     }
 
     //end of game handling here
-  
+  }
 
-if (game_over) {
+  if (game_over) {
     //handle game over here
-    Timer1.stop();
     
+    Timer1.stop();
+    digitalWrite(middLED, LOW);
+    result1 = counter;
+  
     //end of game over handling
-    result1 = getMinResult(results);
-    String result = "{\"Type\":2,\"UserId\":" + userID+"\",\"Result1\":" + (String)(result1)+"}";
+    String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+",\"Result1\":" + (String)(result1)+"}";
     sendMessageWithTimeout(result);
     game_over = false;
     idle_state = true;
     clearData();
-    
+    counter = 0;
     
     
     
@@ -475,7 +451,5 @@ if (game_over) {
 
 
 }
-
-
 
 

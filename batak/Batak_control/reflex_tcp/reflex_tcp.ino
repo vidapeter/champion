@@ -7,17 +7,16 @@
 *
 ******************************************************************/
 
+/*INCLUDES*/
 #include <SPI.h>         // needed for Arduino versions later than 0018
 #include <Ethernet.h>
 #include <ArduinoJson.h>
 #include <TimerOne.h>
 #include <MsTimer2.h>
-/* Additional libraries */
-#include "PinChangeInterrupt.h"
-#include "PinChangeInterruptBoards.h"
-#include "PinChangeInterruptPins.h"
-#include "PinChangeInterruptSettings.h"
-/*End of additional libraries /*
+#include <PinChangeInterrupt.h>
+#include <PinChangeInterruptBoards.h>
+#include <PinChangeInterruptPins.h>
+#include <PinChangeInterruptSettings.h>
 
 #if 0
 #define DEVMODE
@@ -25,15 +24,21 @@
 
 /* GAME PREFERENCES */
 
-#define hardware_ID 1    /*Unique hardware ID used for identification*/
+#define hardware_ID 30    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
-/* Pin definitions */
+#define X0 2
+#define X1 3
+#define X2 4
+#define X3 5
 
-#define redPin 6
-#define greenPin 7
-#define buttonPin 8
+#define Y0 6
+#define Y1 7
+#define Y2 8
+#define Y3 9
+
+#define OUT 10
 
 /*Variables*/
 
@@ -43,14 +48,21 @@ volatile uint8_t type = 0;
 volatile uint16_t result1 = 0;
 volatile uint16_t result2 = 0;
 volatile uint8_t status = 0;
-/*Game defined variables*/
-int timerCounter = 0;
-long start = 0;
-long stop = 0;
-long result = 0;
-int roundCounter = 0;
-long results[3] = {0,0,0};
-/*End of game defined variables*/
+
+/*Games specific variables*/
+volatile int counter = 0;
+volatile int timer_counter = 0;
+
+static long start = 0;
+static long stop = 0;
+static uint8_t prevX = 0;
+static uint8_t prevY = 0;
+static int statX[4] = { 0,0,0,0 };
+static int statY[4] = { 0,0,0,0 };
+static int x_high = 0;
+
+uint8_t x;
+uint8_t y;
 
 #ifdef DEVMODE
 int error = 0;
@@ -76,28 +88,40 @@ bool game_over = false;       //true, if game ended
 bool idle_state = true;       //true, if no game runs, and waits for UDP package
 bool timerFlag = false;
 bool timeoutFlag = false;
-/*Additional booleans*/
-bool interruptFlag = false;
-bool isLedOn = false;
-bool gameTimeCounter = false;
-bool waiting = false;
-/*End of additional booleans*/
+/*Game specific flags*/
+static boolean isButtonPushed = false;
 
+/*INTERNET CONFIGURATION*/
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 67); // server IP address
-unsigned int serverPort = 50505;   //server remote port to connect to 
-IPAddress ownIP(192, 168, 2, hardware_ID);
+IPAddress serverIP(192, 168, 1, 114); // server IP address
+IPAddress ownIP(192, 168, 1, hardware_ID);
+unsigned int serverPort = 6280;   //server remote port to connect to 
+
+
 EthernetClient client;
 
 //interrupt functions
 
+//TimerOne
 void timerISR() {
   timerFlag = true;
+  timer_counter++;
+  if (timer_counter == 6) {
+    game_over = true;
+    timer_counter = 0;
+    //Timer1.stop();
+  }
+  else{game_over = false;}
 }
 
-
+//MsTimer2
 void timeout() {
   timeoutFlag = true;
+}
+
+/*Game specific interrupt routines*/
+void btn_pushed(){
+  isButtonPushed = true;
 }
 
 
@@ -109,18 +133,27 @@ void clearData();
 uint8_t  sendMessageWithTimeout(String message);
 void initEthernet();
 void timerInit();
+/*Game specific function prototypes*/
+void setRandomAddress();
 
 void setup() {
 
 #if defined(DEVMODE)
   Serial.begin(9600);
 #endif
-  /*Pin setup*/
-  pinMode(buttonPin, INPUT);
-  pinMode(greenPin, OUTPUT);
-  pinMode(redPin, OUTPUT);
 
-  attachPCINT(digitalPinToPCINT(buttonPin), buttonPushed, FALLING);
+/*IO settings*/
+  for (int i = 2; i < 10; i++)
+  {pinMode(i, OUTPUT);
+  digitalWrite(i, HIGH);
+  }
+
+  pinMode(OUT, INPUT);
+  
+/*Attach interrupt*/
+  attachPCINT(digitalPinToPCINT(OUT), btn_pushed, FALLING);
+
+  randomSeed(analogRead(5));
 
   MsTimer2::set(ACK_TIMEOUT, timeout); // 500ms period
   timerInit();
@@ -140,7 +173,7 @@ void timerInit() {
 }
 
 void initEthernet() {
-  Ethernet.begin(mac); // we use DHCP
+  Ethernet.begin(mac,ownIP); // we use DHCP
 
 
   delay(1000); // give the Ethernet shield a second to initialize
@@ -153,7 +186,8 @@ void initEthernet() {
     #if defined(DEVMODE)
     Serial.println("connected");
     #endif
- 
+    // Make a HTTP request:
+    //client.println("Hello, a nevem János");
   }
   else {
     // if you didn't get a connection to the server:
@@ -198,10 +232,9 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       Serial.println("Valid pkt");
       Serial.println("Errors: " + (String)error);
 #endif
-      //deviceID = root["DeviceId"];
-      //if (deviceID == hardware_ID) {
-     String uID = root[(String)("UserId")];
-     userID = uID;
+   
+      String uID = root[(String)("UserId")];
+      userID = uID;
       //type = root["Type"];
       result1 = root["Result1"];
       status = root["Status"];
@@ -318,47 +351,107 @@ uint8_t sendMessage(String message) {
 
 }
 
-/*Game functions only used in looop*/
+/*Game specific functions*/
 
-void buttonPushed() {
-  if (digitalRead(greenPin) == HIGH) { //only after the led is on..
-    interruptFlag = true;
+void zeroOut() {
+  for (int i = 2; i < 10; i++)
+  {
+    pinMode(i, OUTPUT);
+    digitalWrite(i, HIGH);
+  }
+
+}
+
+uint8_t generateRandomX() {
+  int i = random(4);
+  switch (i) {
+  case 0: //b0001
+    
+    //x_high = X0;
+    return B0001;
+  case 1: //b0010
+   // x_high = X1;
+    return B0010;
+  case 2://b0100
+    //x_high = X2;
+    return B0100;
+  case 3://b1000
+    //x_high = X3;
+    return B1000;
+  default:
+    return 0;
   }
 }
 
-void initiateLed() {
-  delay(random(2000,5000));
-  digitalWrite(greenPin, HIGH);
-  digitalWrite(redPin, LOW);
-  start = millis();
-}
-
-void timerHandler() {
-  if (game_started){
-  timerCounter++;
-  if (timerCounter == 4) {
-    game_over = true;
-    game_started = false;
-    timerCounter = 0;
-    digitalWrite(redPin,HIGH);
-    digitalWrite(greenPin,LOW);
-  } else {
-    game_over = false;
-    }
+uint8_t generateRandomY() {
+  int i = random(4);
+  switch (i) {
+  case 0: //b0001
+    
+    return B0001;
+  case 1: //b0010
+    
+    return B0010;
+  case 2://b0100
+    
+    return B0100;
+  case 3://b1000
+    
+    return B1000;
+  default:
+    return 0;
   }
 }
 
-long getMinResult(long results[]) {
-  long min = results[0];
-  for (int i=0;i<3;i++) {
-    if (min > results[i] && (results[i] != 0)) {
-      min = results[i];
-    }
-    results[i] = 0;
+void setRandomAddress() {
+
+
+  prevX = x;
+  prevY = y;
+
+  for (int i = 2; i < 10; i++) {
+  
+    digitalWrite(i, HIGH);
+
+
   }
-  return min;
+
+  x = generateRandomX();
+  y = generateRandomY();
+
+  while ((prevX == x) && (prevY == y)) {
+     x = generateRandomX();
+     y = generateRandomY();
+   
+  }
+
+  Serial.print("X : ");
+  Serial.println(x, BIN);
+  Serial.print(" y: ");
+  Serial.println(y, BIN);
+  uint8_t address;
+
+  address = y;
+  address = address << 4;
+  address = address | x;
+#ifdef DEVMODE
+  Serial.print("Address: ");
+  Serial.println( address,BIN);
+ #endif
+  zeroOut();
+  for (int i = 2; i < 10; i++) {
+    uint16_t temp = (~((address >> (i - 2)) & B00000001))&B00000001;
+    digitalWrite(i,temp);
+   #ifdef DEVMODE
+    Serial.print("Pin " + (String)i + " value ");
+    Serial.println(temp, BIN);
+    #endif
+
+  }
+
 }
-/*End of game functions*/
+
+
 
 
 void loop() {
@@ -367,7 +460,10 @@ void loop() {
 
   if (idle_state) {
 
-
+#ifdef DEVMODE
+    //Serial.println("Idle state");
+    //delay(50);
+#endif
 
     game_started = false;
     int status = 0;
@@ -393,15 +489,14 @@ void loop() {
         sendMessage(ack); //simple ack message, no answer 
         game_started = true;
         Timer1.setPeriod(5000000);
-        Timer1.attachInterrupt(timerHandler);
-        Timer1.restart();
         idle_state = false;
         valid_pkt_received = false;
-        /*Game starting*/
-         digitalWrite(redPin, HIGH);
-         initiateLed();
-         timerFlag = false;
-         timeoutFlag = false;
+        /*Game specific part*/
+        timer_counter = 0;
+        counter = 0;
+        Timer1.restart();
+        start = millis();
+        setRandomAddress();
 
         break;
       default:
@@ -419,55 +514,57 @@ void loop() {
   if (game_started) {
     //start and handle the game here
 
-
-
-
 #ifdef DEVMODE
-    Serial.println("Game is running");
+   // Serial.println("Game is running");
 #endif
+      if (isButtonPushed) {
+      counter++;
+      #ifdef DEVMODE
+      Serial.println("Actual pin" + (String)(x_high)+ " value: "+ (String)(digitalRead(x_high)));
+      #endif
+      setRandomAddress();
+      isButtonPushed = false;
+
+
+    }
 
 
 
 
-
-    if (interruptFlag) {
+    if (timerFlag) {
       // handle timer interrupt here
-       roundCounter++;
 
-        stop = millis();
-        digitalWrite(redPin, HIGH);
-        digitalWrite(greenPin, LOW);
-        interruptFlag = false;
-        results[roundCounter-1] = stop - start;
-
-        if (roundCounter < 3) {
-          initiateLed();
-        }
-        if (roundCounter == 3) {
-          roundCounter = 0;
-          interruptFlag = false;
-          game_over = true;
-          game_started = false;
-          interruptFlag = false;
-        }
-      }
+      //game_over = true;
+      //game_started = false;
+      //timerFlag = false;
     }
 
     //end of game handling here
-  
+  }
 
-if (game_over) {
+  if (game_over) {
     //handle game over here
     Timer1.stop();
+    result1 = counter;
     
+    #ifdef DEVMODE
+      Serial.println("Game ended with " +(String) counter + " points");
+     #endif
+      stop = millis();
+      #ifdef DEVMODE
+      
+      Serial.println("Seconds elapsed: " + (String)((stop - start)/1000));
+      #endif
+    
+
     //end of game over handling
-    result1 = getMinResult(results);
-    String result = "{\"Type\":2,\"UserId\":" + userID+"\",\"Result1\":" + (String)(result1)+"}";
+    String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+",\"Result1\":" + (String)(result1)+"}";
     sendMessageWithTimeout(result);
     game_over = false;
     idle_state = true;
     clearData();
-    
+    counter = 0;
+    timer_counter = 0;
     
     
     
@@ -475,7 +572,5 @@ if (game_over) {
 
 
 }
-
-
 
 
