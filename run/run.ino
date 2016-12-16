@@ -16,8 +16,11 @@
 int timerCounter = 0;
 bool isGameOn = false;
 bool isGameOver = false;
+bool isGameStarted = false;
+bool isGameWaiting = false;
 bool startFlag = false;
 bool finishFlag = false;
+int GIVEN_START_TIME_FROM_SERVER = 0;
 
 String startButton = "";
 long start = 0;
@@ -66,8 +69,11 @@ void loop() {
     #ifdef DEVMODE
     else {
       while (Serial.available() && isGameOn == false) {
+        if (GIVEN_START_TIME_FROM_SERVER != 0) {
+        isGameWaiting = true;
+        }
          startButton = (char)Serial.read();
-        if  (startButton == "x") {
+        if  (isGameStarted) {
           if (startFlag) {
             start = millis();
             isGameOn = true;
@@ -82,14 +88,25 @@ void loop() {
 }
 
 void timerHandler() {
-  timerCounter++;
-  if (timerCounter == 6) {
-    isGameOver = true;
-    isGameOn = false;
-    timerCounter = 0;
-    digitalWrite(ledPin,LOW);
+  if (isGameWaiting == true) { // waiting for the server
+    timerCounter++;
+    if (timerCounter == GIVEN_START_TIME_FROM_SERVER) {
+      isGameWaiting = false;
+      isGameStarted = true;
+      timerCounter = 0;
+    }
+  } else if (isGameStarted == true) {
+    if (timerCounter == 6) {
+      isGameOver = true;
+      isGameOn = false;
+      timerCounter = 0;
+      digitalWrite(ledPin,LOW);
+    } else {
+      isGameOver = false;
+    }
   } else {
-    isGameOver = false;
+    isGameStarted = false;
+    isGameWaiting = false;
   }
 }
 
