@@ -19,7 +19,7 @@
 #include "PinChangeInterruptPins.h"
 #include "PinChangeInterruptSettings.h"
 
-#if 1
+#if 0
 #define DEVMODE
 #endif
 
@@ -421,7 +421,9 @@ void loop() {
           }
           counter++;
           lastTouched = electrodeRegister;
+          #ifdef DEVMODE
           Serial.println(counter);
+          #endif
         }
 
       }

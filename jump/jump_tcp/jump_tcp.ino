@@ -17,13 +17,13 @@
 #include "PinChangeInterruptPins.h"
 #include "PinChangeInterruptSettings.h"
 
-#if 0
+#if 1
 #define DEVMODE
 #endif
 
 /* GAME PREFERENCES */
 
-#define hardware_ID 1    /*Unique hardware ID used for identification*/
+#define hardware_ID 30    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
@@ -74,10 +74,11 @@ bool timeoutFlag = false;
 bool interruptFlag = false;
 bool rightButtonFlag = false;
 bool leftButtonFlag = false;
+bool down_flag = false;
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 118); // server IP address
-IPAddress ownIP(192, 168, 2, hardware_ID);
+IPAddress serverIP(192, 168, 1, 112); // server IP address
+IPAddress ownIP(192, 168, 1, hardware_ID);
 unsigned int serverPort = 6280;   //server remote port to connect to 
 EthernetClient client;
 
@@ -111,6 +112,9 @@ void leftButtonPushed() {
   leftButtonFlag = true;
 }
 
+void down(){
+  down_flag = true;
+}
 
 //function prototypes
 int receiveServerMessage();
@@ -127,11 +131,13 @@ void setup() {
   Serial.begin(9600);
 #endif
 
-  pinMode(leftButtonPin, INPUT_PULLUP);
-  pinMode(rightButtonPin, INPUT_PULLUP);
+  pinMode(leftButtonPin, INPUT);
+  pinMode(rightButtonPin, INPUT);
   
    attachPCINT(digitalPinToPCINT(rightButtonPin), rightButtonPushed, FALLING);
   attachPCINT(digitalPinToPCINT(leftButtonPin), leftButtonPushed, FALLING);
+
+
 
   MsTimer2::set(ACK_TIMEOUT, timeout); // 500ms period
   timerInit();
@@ -361,7 +367,7 @@ void loop() {
         break; //skip packet
       case START:
 #ifdef DEVMODE
-        Serial.println("Game started");
+        //Serial.println("Game started");
 #endif
 
         sendMessage(ack); //simple ack message, no answer 
@@ -372,8 +378,27 @@ void loop() {
         valid_pkt_received = false;
 
         //waiting for stepping at the right place, if stepped, code rolls over
-          while(!(rightButtonFlag && leftButtonFlag));
+        #ifdef DEVMODE
+        Serial.println("Waiting for jump");
+        #endif
+          while(1){
+#ifdef DEVMODE
+  Serial.println("right:"+ (String)(rightButtonFlag));
+   Serial.println("left:"+ (String)(leftButtonFlag));
+  #endif
+            
+          if((rightButtonFlag == true) && (leftButtonFlag == true)){
+            #ifdef DEVMODE
+           Serial.println("jumped");
+           #endif
+             break;
+          }
+          }
                 start = millis();
+                attachPCINT(digitalPinToPCINT(rightButtonPin), down, RISING);
+                attachPCINT(digitalPinToPCINT(leftButtonPin), down, RISING);
+                rightButtonFlag = false;
+                leftButtonFlag = false;
         break;
       default:
         break;
@@ -394,13 +419,14 @@ void loop() {
     Serial.println("Game is running");
 #endif
 
-    if (rightButtonFlag || leftButtonFlag) {
+    if (down_flag) {
         digitalWrite(greenPin, LOW);
         stop = millis();
         game_over = true;
         game_started = false;
         rightButtonFlag = false;
         leftButtonFlag = false;
+        down_flag = false;
     }
 
   
@@ -427,8 +453,11 @@ void loop() {
     game_over = false;
     idle_state = true;
     clearData();
-    counter =0;
+    timerCounter =0;
     result1 = 0;
+
+  attachPCINT(digitalPinToPCINT(rightButtonPin), rightButtonPushed, FALLING);
+  attachPCINT(digitalPinToPCINT(leftButtonPin), leftButtonPushed, FALLING);
     
     
   }
