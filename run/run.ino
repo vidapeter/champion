@@ -96,7 +96,8 @@ void timerHandler() {
       timerCounter = 0;
     }
   } else if (isGameStarted == true) {
-    if (timerCounter == 6) {
+    timerCounter++;
+    if (timerCounter == 10) {
       isGameOver = true;
       isGameOn = false;
       timerCounter = 0;

@@ -19,20 +19,20 @@
 #include "PinChangeInterruptPins.h"
 #include "PinChangeInterruptSettings.h"
 
-#if 0
+#if 1
 #define DEVMODE
 #endif
 
 /* GAME PREFERENCES */
 
-#define hardware_ID 1    /*Unique hardware ID used for identification*/
+#define hardware_ID 30    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
 /*Game specific defines*/
-#define rightLED 13
-#define middLED 12
-#define leftLED 11
+#define rightLED 3
+#define middLED 2
+#define leftLED 1
 #define INT 8
 
 
@@ -79,8 +79,8 @@ bool timerFlag = false;
 bool timeoutFlag = false;
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 114); // server IP address
-IPAddress ownIP(192, 168, 2, hardware_ID);
+IPAddress serverIP(192, 168, 1, 112); // server IP address
+IPAddress ownIP(192, 168, 1, hardware_ID);
 unsigned int serverPort = 6280;   //server remote port to connect to 
 EthernetClient client;
 
@@ -116,17 +116,24 @@ void timerInit();
 
 void setup() {
 
-#if defined(DEVMODE)
+#ifdef DEVMODE
   Serial.begin(9600);
 #endif
 //device setup
+Serial.println("Hello");
+
 
 if (!cap.begin(0x5A)) {
     #ifdef DEVMODE
     Serial.println("MPR121 not found, check wiring?");
-    while (1);
+    //while (1);
     #endif
   }
+  
+
+  pinMode(leftLED,OUTPUT);
+  pinMode(middLED,OUTPUT);
+  pinMode(rightLED,OUTPUT);
   
   pinMode(INT, INPUT_PULLUP);
   attachPCINT(digitalPinToPCINT(INT), touched, FALLING);
@@ -162,8 +169,7 @@ void initEthernet() {
     #if defined(DEVMODE)
     Serial.println("connected");
     #endif
-    // Make a HTTP request:
-    //client.println("Hello, a nevem János");
+
   }
   else {
     // if you didn't get a connection to the server:
@@ -393,7 +399,7 @@ void loop() {
     //start and handle the game here
 
 #ifdef DEVMODE
-    Serial.println("Game is running");
+   // Serial.println("Game is running");
 #endif
 
       if (touchedFlag) {
@@ -424,10 +430,15 @@ void loop() {
 
     if (timerFlag) {
       // handle timer interrupt here
-
-      game_over = true;
-      game_started = false;
-      timerFlag = false;
+         timer_counter++;
+  if (timer_counter == 6) {
+    if (game_started) { game_over = true; }
+    game_started = false;
+    timer_counter = 0;
+    Timer1.stop();
+    
+  }
+  timerFlag = false;
     }
 
     //end of game handling here

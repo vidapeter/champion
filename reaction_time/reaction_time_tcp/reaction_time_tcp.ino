@@ -84,8 +84,8 @@ bool waiting = false;
 /*End of additional booleans*/
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 67); // server IP address
-unsigned int serverPort = 50505;   //server remote port to connect to 
+IPAddress serverIP(192, 168, 1, 112); // server IP address
+unsigned int serverPort = 6280;   //server remote port to connect to 
 IPAddress ownIP(192, 168, 1, hardware_ID);
 EthernetClient client;
 
