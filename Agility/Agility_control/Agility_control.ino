@@ -7,17 +7,14 @@
 volatile int tick = 0;
 volatile int timer = 0;
 
-#if 1
-#define DEVMODE
-#endif
-
 #define SENSOR1 3
 #define SENSOR2 4
 #define MAX_CYCLE 30*4
 
-#ifdef DEVMODE
+#define rightLED 5
+#define lefttLED 6
+
 String startButton = "";
-#endif
 
 static int data[MAX_CYCLE-1]; //TODO: init
 static int results[MAX_CYCLE-1];
@@ -46,7 +43,7 @@ void rightAction(){
 
 void leftAction(){
   isLeftAction = true;
-  isGameOn = false; // ??
+  isGameOn = false;
 }
 
 void setup() {
@@ -57,6 +54,9 @@ void setup() {
 
   pinMode(SENSOR1,INPUT);
   pinMode(SENSOR2,INPUT);
+
+  pinmode(rightLED, OUTPUT);
+  pinmode(leftLED, OUTPUT);
 
   attachPCINT(digitalPinToPCINT(SENSOR1), rightAction, RISING);
   attachPCINT(digitalPinToPCINT(SENSOR2), leftAction, RISING);
@@ -71,23 +71,25 @@ void loop() {
         if(isLeftAction){
           results[tick] = 1;
           isLeftAction = false;
+          digitalWrite(lefttLED, HIGH);
         }
         if(isRightAction){
           results[tick] = 2;
           isLeftAction = false;
+          digitalWrite(lefttLED, HIGH);
         }
-      } else {results[tick] = 0;}
+      } else {
+        results[tick] = 0;
+        digitalWrite(lefttLED, LOW);
+        digitalWrite(lefttLED, LOW);
+      }
     }
   } else if (isGameOver) {
       isGameOver = false;
-      result = calculateResult(data,results);
-      #ifdef DEVMODE
       Serial.println("GAME OVER");
+      result = calculateResult(data,results);
       Serial.println("Your result is: " + (String)(result));
-      #endif
-  } 
-  #ifdef DEVMODE
-  else {
+  } else {
     while (Serial.available() && isGameOn == false) {
        startButton = (char)Serial.read();
       if (startButton == "x") {
@@ -97,7 +99,6 @@ void loop() {
       }
     }
   }
-  #endif
   delay(5);
 }
 
