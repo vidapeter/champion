@@ -2,6 +2,10 @@
 #define trigPin 11
 #define echoPin 12
 
+#if 1
+#define DEVMODE
+#endif
+
 bool isRegistrationOn = false;
 bool isRegistrationOver = false;
 int counter;
@@ -11,13 +15,16 @@ long duration, cm, inches, result;
 long results[3] = {0,0,0};
 
 void setup() {
-  while (!Serial);
-  Serial.begin(9600);
-  Serial.println("start measuring height");
+  #if defined(DEVMODE)
+    Serial.begin(9600);
+  #endif
 
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
 
+  #ifdef DEVMODE
+    Serial.println("setup finished");
+  #endif
 }
 
 void loop() {
@@ -34,19 +41,24 @@ void loop() {
     } else if (isRegistrationOver) {
       isRegistrationOn = false;
       isRegistrationOver = false;
-      Serial.println("MEASURING DONE");
+      #ifdef DEVMODE
+        Serial.println("MEASURING DONE");
+      #endif
 
       result = getMinResult(results);
 
-      Serial.println("Your height is: " + (String)(result));
+      #ifdef DEVMODE
+        Serial.println("Your height is: " + (String)(result));
+      #endif
     } else {
       while (Serial.available() && isRegistrationOn == false) {
          startButton = (char)Serial.read();
         if  (startButton == "x") {
 
             isRegistrationOn = true;
-
-            Serial.println("measuring started.");
+            #ifdef DEVMODE
+              Serial.println("measuring started.");
+            #endif
           }
         }
       }
