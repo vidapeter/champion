@@ -47,7 +47,7 @@ void setup() {
   Serial.begin(9600);
   Serial.println("Adafruit MPR121 Capacitive Touch sensor test");
   #endif
-  
+
   pinMode(leftLED,OUTPUT);
   pinMode(middLED,OUTPUT);
   pinMode(rightLED,OUTPUT);
@@ -61,7 +61,7 @@ void setup() {
   #ifdef DEVMODE
   Serial.println("MPR121 found!");
   #endif
-  
+
   pinMode(8, INPUT_PULLUP);
 
   attachPCINT(digitalPinToPCINT(8), touched, FALLING);
@@ -79,16 +79,16 @@ void loop() {
       if (touchedFlag == true) {
         electrodeRegister = cap.readRegister8(0x00);
 
-        (electrodeRegister >= 8 && electrodeRegister != 32) ? digitalWrite(middLED, HIGH) : digitalWrite(middLED, LOW);
+        (electrodeRegister >= 2 && electrodeRegister != 4) ? digitalWrite(middLED, HIGH) : digitalWrite(middLED, LOW);
 
-        uint8_t touchedElectrode = electrodeRegister - 8;
+        uint8_t touchedElectrode = electrodeRegister - 2;
 
-        if ((touchedElectrode == 32 || touchedElectrode == 2) && lastTouched != electrodeRegister) {
+        if ((touchedElectrode == 4 || touchedElectrode == 1) && lastTouched != electrodeRegister) {
           MsTimer2::stop();
-          if (touchedElectrode == 32) {
+          if (touchedElectrode == 4) {
             digitalWrite(leftLED,HIGH);
             MsTimer2::start();
-          } else if (touchedElectrode == 2) {
+          } else if (touchedElectrode == 1) {
             digitalWrite(rightLED,HIGH);
             MsTimer2::start();
           }
@@ -108,7 +108,7 @@ void loop() {
       Serial.println("Your result is: " + (String)(counter));
       #endif
       counter = 0;
-    } 
+    }
     #ifdef DEVMODE
     else {
       while (Serial.available() && isGameOn == false) {

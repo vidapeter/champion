@@ -81,7 +81,7 @@ bool timeoutFlag = false;
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
 IPAddress serverIP(192, 168, 1, 110); // server IP address
 IPAddress ownIP(192, 168, 1, hardware_ID);
-unsigned int serverPort = 6280;   //server remote port to connect to 
+unsigned int serverPort = 6280;   //server remote port to connect to
 EthernetClient client;
 
 //interrupt functions
@@ -129,12 +129,12 @@ if (!cap.begin(0x5A)) {
     //while (1);
     #endif
   }
-  
+
 
   pinMode(leftLED,OUTPUT);
   pinMode(middLED,OUTPUT);
   pinMode(rightLED,OUTPUT);
-  
+
   pinMode(INT, INPUT_PULLUP);
   attachPCINT(digitalPinToPCINT(INT), touched, FALLING);
 
@@ -188,7 +188,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
     received += c;
 
   }
-  
+
 
   if (received != "") {
     StaticJsonBuffer<150> jsonBuffer;
@@ -221,7 +221,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       //type = root["Type"];
       result1 = root["Result1"];
       status = root["Status"];
-      // ha userid = 0 és status = 1 akkor ack, ha 
+      // ha userid = 0 és status = 1 akkor ack, ha
       // userid != 0 akkor start game
 #if defined(DEVMODE)
 
@@ -243,18 +243,18 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       }
       else if (userID == 0 && status != 0)
         return 0;
-      else 
+      else
         return START;
 
-      
+
     }
   }
-  
+
   else {
     ConnectServer();
     return 0;
   }
-  
+
 }
 
 void ConnectServer(){ //WARNING: BLOCKING STATEMENT
@@ -271,7 +271,7 @@ void ConnectServer(){ //WARNING: BLOCKING STATEMENT
 void clearData() {
   //deviceID = 0;
   userID = "";
-  type = 0; 
+  type = 0;
   result1 = 0;
 
 
@@ -344,8 +344,8 @@ void flash() {
 
 
 void loop() {
-  
-  
+
+
 
   if (idle_state) {
 
@@ -360,7 +360,7 @@ void loop() {
 #ifdef DEVMODE
     //status = START;
     //valid_pkt_received = true;
-#endif  
+#endif
     if (valid_pkt_received) {
 
       switch (status) {
@@ -375,7 +375,7 @@ void loop() {
         Serial.println("Game started");
 #endif
 
-        sendMessage(ack); //simple ack message, no answer 
+        sendMessage(ack); //simple ack message, no answer
         game_started = true;
         Timer1.setPeriod(5000000);
         Timer1.restart();
@@ -390,7 +390,7 @@ void loop() {
       }
 
     }
-    
+
   }
 
 
@@ -406,16 +406,16 @@ void loop() {
         touchedFlag = false;
         electrodeRegister = cap.readRegister8(0x00);
 
-        (electrodeRegister >= 8 && electrodeRegister != 32) ? digitalWrite(middLED, HIGH) : digitalWrite(middLED, LOW);
+        (electrodeRegister >= 2 && electrodeRegister != 4) ? digitalWrite(middLED, HIGH) : digitalWrite(middLED, LOW);
 
-        uint8_t touchedElectrode = electrodeRegister - 8;
+        uint8_t touchedElectrode = electrodeRegister - 2;
 
-        if ((touchedElectrode == 32 || touchedElectrode == 2) && lastTouched != electrodeRegister) {
+        if ((touchedElectrode == 4 || touchedElectrode == 1) && lastTouched != electrodeRegister) {
           //MsTimer2::stop();
-          if (touchedElectrode == 32) {
+          if (touchedElectrode == 4) {
             digitalWrite(leftLED,HIGH);
             MsTimer2::start();
-          } else if (touchedElectrode == 2) {
+          } else if (touchedElectrode == 1) {
             digitalWrite(rightLED,HIGH);
             MsTimer2::start();
           }
@@ -438,7 +438,7 @@ void loop() {
     game_started = false;
     timer_counter = 0;
     Timer1.stop();
-    
+
   }
   timerFlag = false;
     }
@@ -448,11 +448,11 @@ void loop() {
 
   if (game_over) {
     //handle game over here
-    
+
     Timer1.stop();
     digitalWrite(middLED, LOW);
     result1 = counter;
-  
+
     //end of game over handling
     String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+",\"Result1\":" + (String)(result1)+"}";
     sendMessageWithTimeout(result);
@@ -460,12 +460,10 @@ void loop() {
     idle_state = true;
     clearData();
     counter = 0;
-    
-    
-    
+
+
+
   }
 
 
 }
-
-
