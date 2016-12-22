@@ -18,7 +18,7 @@
 #include <PinChangeInterruptPins.h>
 #include <PinChangeInterruptSettings.h>
 
-#if 0
+#if 1
 #define DEVMODE
 #endif
 
@@ -38,7 +38,7 @@
 #define Y2 8
 #define Y3 9
 
-#define OUT 10
+#define OUT 1
 
 /*Variables*/
 
@@ -93,7 +93,7 @@ static boolean isButtonPushed = false;
 
 /*INTERNET CONFIGURATION*/
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 114); // server IP address
+IPAddress serverIP(192, 168, 1, 110); // server IP address
 IPAddress ownIP(192, 168, 1, hardware_ID);
 unsigned int serverPort = 6280;   //server remote port to connect to 
 
@@ -353,7 +353,7 @@ uint8_t sendMessage(String message) {
 
 /*Game specific functions*/
 
-void zeroOut() {
+void clearAll() {
   for (int i = 2; i < 10; i++)
   {
     pinMode(i, OUTPUT);
@@ -438,7 +438,7 @@ void setRandomAddress() {
   Serial.print("Address: ");
   Serial.println( address,BIN);
  #endif
-  zeroOut();
+  clearAll();
   for (int i = 2; i < 10; i++) {
     uint16_t temp = (~((address >> (i - 2)) & B00000001))&B00000001;
     digitalWrite(i,temp);
@@ -450,6 +450,8 @@ void setRandomAddress() {
   }
 
 }
+
+
 
 
 
@@ -494,8 +496,25 @@ void loop() {
         /*Game specific part*/
         timer_counter = 0;
         counter = 0;
+        
+        /****START LIGHTS****/
+        digitalWrite(Y0,LOW);
+        digitalWrite(Y1,LOW);
+        digitalWrite(Y2,LOW);
+        digitalWrite(Y3,LOW);
+
+        for(int i = 0;i<5;i++){
+          digitalWrite(i+1,LOW);
+          delay(400);
+          digitalWrite(i+1,HIGH);
+        }
+
+        clearAll();
+        Timer1.setPeriod(5000000);//interrupt every 5 seconds
         Timer1.restart();
         start = millis();
+
+        /********/        
         setRandomAddress();
 
         break;
@@ -507,7 +526,7 @@ void loop() {
 
     }
     
-  }
+  }  
 
 
 
@@ -563,6 +582,7 @@ void loop() {
     game_over = false;
     idle_state = true;
     clearData();
+    clearAll();
     counter = 0;
     timer_counter = 0;
     
