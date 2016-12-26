@@ -6,12 +6,12 @@
 
 volatile int tick = 0;
 
-#define SENSOR1 3
-#define SENSOR2 4
+#define SENSOR1 7
+#define SENSOR2 6
 #define MAX_CYCLE 32
 
-#define rightLED 5
-#define leftLED 6
+#define rightLED 13
+#define leftLED 9
 
 String startButton = "";
 

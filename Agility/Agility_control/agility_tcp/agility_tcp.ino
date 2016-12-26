@@ -27,11 +27,11 @@
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 /*Game specific*/
-#define SENSOR1 3
-#define SENSOR2 4
-#define MAX_CYCLE 30*4
+#define SENSOR1 5
+#define SENSOR2 7
+#define MAX_CYCLE 32
 
-#define rightLED 5
+#define rightLED 4
 #define leftLED 6
 
 /*Variables*/
@@ -45,7 +45,7 @@ volatile uint8_t status = 0;
 /*game specific*/
 volatile int tick = 0;
 volatile int timer = 0;
-static int data[MAX_CYCLE-1]; //TODO: init
+static int data[MAX_CYCLE] = {0, 1,1,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 static int results[MAX_CYCLE-1];
 int result;
 
@@ -85,19 +85,12 @@ IPAddress serverIP(192, 168, 1, 113); // server IP address
 IPAddress ownIP(192, 168, 1, hardware_ID);
 unsigned int serverPort = 6280;   //server remote port to connect to 
 EthernetClient client;
-
 //interrupt functions
 
 void systemTick(){
-  if(timer < MAX_CYCLE){
-    tick++;
-    Timer1.restart();
-    timerAction = true;
-  }else{
-    game_over = true;
-  }
-
+  timerAction = true;
 }
+
 
 
 void timeout() {
@@ -110,7 +103,6 @@ void rightAction(){
 
 void leftAction(){
   isLeftAction = true;
-  game_started = false;
 }
 
 
@@ -133,14 +125,14 @@ void setup() {
 #endif
 
 
-  pinMode(SENSOR1,INPUT);
-  pinMode(SENSOR2,INPUT);
+  pinMode(SENSOR1,INPUT_PULLUP);
+  pinMode(SENSOR2,INPUT_PULLUP);
 
   pinMode(rightLED, OUTPUT);
   pinMode(leftLED, OUTPUT);
 
-  attachPCINT(digitalPinToPCINT(SENSOR1), rightAction, RISING);
-  attachPCINT(digitalPinToPCINT(SENSOR2), leftAction, RISING);
+  attachPCINT(digitalPinToPCINT(SENSOR1), rightAction, FALLING);
+  attachPCINT(digitalPinToPCINT(SENSOR2), leftAction, FALLING);
 
   MsTimer2::set(ACK_TIMEOUT, timeout); // 500ms period
   timerInit();
@@ -240,7 +232,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       Serial.println(status);
 
 #endif
-      memset(json, 0, 200);
+     // memset(json, 0, 150);
       valid_pkt_received = true;
 
       if (userID == 0 && status == 1) {
@@ -343,7 +335,6 @@ uint8_t sendMessage(String message) {
 
 static int calculateResult(int data[], int results[]) {
   for (int i=0;i<MAX_CYCLE;i++) {
-
     switch (data[i]) {
       case 1:
         checkResult(1, i);
@@ -355,6 +346,7 @@ static int calculateResult(int data[], int results[]) {
         break;
     }
   }
+  return result;
 }
 
 void checkResult(int leg, int index) {
@@ -398,11 +390,10 @@ void loop() {
 #endif
 
         sendMessage(ack); //simple ack message, no answer 
-        game_started = true;
-        Timer1.setPeriod(5000000);
-        Timer1.restart();
+        Timer1.start();
         idle_state = false;
         valid_pkt_received = false;
+        game_started = true;
         isRightAction = false;
         isLeftAction = false;
 
@@ -423,11 +414,15 @@ void loop() {
     //start and handle the game here
 
 #ifdef DEVMODE
-    Serial.println("Game is running");
+    //Serial.println("Game is running "+ (String)(game_over)+ " idle "+ (String)(idle_state));
 #endif
 
  if(timerAction){
+    tick++;
+ 
+
       if(isRightAction ^ isLeftAction){
+        Serial.println("INT");
         if(isLeftAction){
           results[tick] = 1;
           isLeftAction = false;
@@ -435,18 +430,32 @@ void loop() {
         }
         if(isRightAction){
           results[tick] = 2;
-          isLeftAction = false;
-          digitalWrite(leftLED, HIGH);
+           isRightAction = false;
+          digitalWrite(rightLED, HIGH);
         }
       } else {
         results[tick] = 0;
         digitalWrite(leftLED, LOW);
-        digitalWrite(leftLED, LOW);
+        digitalWrite(rightLED, LOW);
+        isRightAction = false;
+        isLeftAction = false;
       }
+  
+      timerAction = false;
+
+    #ifdef DEVMODE
+    Serial.println(tick);
+    #endif
     }
 
+    if(tick == (MAX_CYCLE-1)){
+      Serial.println("Max reached");
+      game_over = true;
+      game_started = false;
+    }
 
-
+  
+  
    
     //end of game handling here
   }
@@ -454,7 +463,20 @@ void loop() {
   if (game_over) {
     //handle game over here
     Timer1.stop();
-    result1 =  calculateResult(data,results);
+    result1 = calculateResult(data,results);
+#ifdef DEVMODE
+         Serial.print("Data: ");
+      for(int i = 0;i<MAX_CYCLE;i++){
+        Serial.print(data[i],DEC);
+        Serial.print(" ");
+      }
+      Serial.println("");
+      Serial.print("Res : ");
+     for(int i = 0;i<MAX_CYCLE;i++){
+        Serial.print(results[i],DEC);
+        Serial.print(" ");
+     }
+#endif
 
     //end of game over handling
     String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+",\"Result1\":" + (String)(result1)+"}";
