@@ -54,14 +54,14 @@ void setup() {
   Timer1.attachInterrupt(systemTick);
   Timer1.stop();
 
-  pinMode(SENSOR1,INPUT);
-  pinMode(SENSOR2,INPUT);
+  pinMode(SENSOR1,INPUT_PULLUP);
+  pinMode(SENSOR2,INPUT_PULLUP);
 
   pinMode(rightLED, OUTPUT);
   pinMode(leftLED, OUTPUT);
 
-  attachPCINT(digitalPinToPCINT(SENSOR1), rightAction, RISING);
-  // attachPCINT(digitalPinToPCINT(SENSOR2), leftAction, RISING);
+  attachPCINT(digitalPinToPCINT(SENSOR1), rightAction, FALLING);
+  attachPCINT(digitalPinToPCINT(SENSOR2), leftAction, FALLING);
   Serial.println("setup finished!");
 }
 
@@ -70,6 +70,7 @@ void loop() {
 
     if(timerAction){
       if(isRightAction ^ isLeftAction){
+        Serial.println("INT");
         if(isLeftAction){
           results[tick] = 1;
           isLeftAction = false;
@@ -84,14 +85,31 @@ void loop() {
         results[tick] = 0;
         digitalWrite(leftLED, LOW);
         digitalWrite(rightLED, LOW);
+        isRightAction = false;
+        isLeftAction = false;
       }
+      timerAction = false;
     }
   } else if (isGameOver) {
       Timer1.stop();
       isGameOver = false;
+      Serial.print("Data: ");
+      for(int i = 0;i<MAX_CYCLE;i++){
+        Serial.print(data[i],DEC);
+        Serial.print(" ");
+      }
+      Serial.println("");
+      Serial.print("Res : ");
+     for(int i = 0;i<MAX_CYCLE;i++){
+        Serial.print(results[i],DEC);
+        Serial.print(" ");
+      }
+   
       Serial.println("GAME OVER");
       result = calculateResult(data,results);
       Serial.println("Your result is: " + (String)(result));
+   
+      
   } else {
     while (Serial.available() && isGameOn == false) {
        startButton = (char)Serial.read();
@@ -119,6 +137,7 @@ static int calculateResult(int data[], int results[]) {
         break;
     }
   }
+  return result;
 }
 
 void checkResult(int leg, int index) {
