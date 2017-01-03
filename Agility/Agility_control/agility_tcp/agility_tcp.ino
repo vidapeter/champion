@@ -31,8 +31,8 @@
 #define SENSOR2 7
 #define MAX_CYCLE 32
 
-#define rightLED 4
-#define leftLED 6
+#define rightLED 3
+#define leftLED 2
 
 /*Variables*/
 
@@ -83,7 +83,7 @@ bool timerAction = false;
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
 IPAddress serverIP(192, 168, 1, 113); // server IP address
 IPAddress ownIP(192, 168, 1, hardware_ID);
-unsigned int serverPort = 6280;   //server remote port to connect to 
+unsigned int serverPort = 6280;   //server remote port to connect to
 EthernetClient client;
 //interrupt functions
 
@@ -185,7 +185,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
     received += c;
 
   }
-  
+
 
   if (received != "") {
     StaticJsonBuffer<150> jsonBuffer;
@@ -218,7 +218,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       //type = root["Type"];
       result1 = root["Result1"];
       status = root["Status"];
-      // ha userid = 0 és status = 1 akkor ack, ha 
+      // ha userid = 0 és status = 1 akkor ack, ha
       // userid != 0 akkor start game
 #if defined(DEVMODE)
 
@@ -240,18 +240,18 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       }
       else if (userID == 0 && status != 0)
         return 0;
-      else 
+      else
         return START;
 
-      
+
     }
   }
-  
+
   else {
     ConnectServer(ready);
     return 0;
   }
-  
+
 }
 
 void ConnectServer(String text){ //WARNING: BLOCKING STATEMENT
@@ -270,7 +270,7 @@ void ConnectServer(String text){ //WARNING: BLOCKING STATEMENT
 void clearData() {
   //deviceID = 0;
   userID = "";
-  type = 0; 
+  type = 0;
   result1 = 0;
 
 
@@ -358,8 +358,8 @@ void checkResult(int leg, int index) {
 
 
 void loop() {
-  
-  
+
+
 
   if (idle_state) {
 
@@ -374,7 +374,7 @@ void loop() {
 #ifdef DEVMODE
     //status = START;
     //valid_pkt_received = true;
-#endif  
+#endif
     if (valid_pkt_received) {
 
       switch (status) {
@@ -389,7 +389,7 @@ void loop() {
         Serial.println("Game started");
 #endif
 
-        sendMessage(ack); //simple ack message, no answer 
+        sendMessage(ack); //simple ack message, no answer
         Timer1.start();
         idle_state = false;
         valid_pkt_received = false;
@@ -405,7 +405,7 @@ void loop() {
       }
 
     }
-    
+
   }
 
 
@@ -419,19 +419,19 @@ void loop() {
 
  if(timerAction){
     tick++;
- 
-
       if(isRightAction ^ isLeftAction){
         Serial.println("INT");
         if(isLeftAction){
           results[tick] = 1;
           isLeftAction = false;
           digitalWrite(leftLED, HIGH);
+          digitalWrite(rightLED, LOW);
         }
         if(isRightAction){
           results[tick] = 2;
            isRightAction = false;
           digitalWrite(rightLED, HIGH);
+          digitalWrite(leftLED, LOW);
         }
       } else {
         results[tick] = 0;
@@ -440,7 +440,7 @@ void loop() {
         isRightAction = false;
         isLeftAction = false;
       }
-  
+
       timerAction = false;
 
     #ifdef DEVMODE
@@ -454,9 +454,9 @@ void loop() {
       game_started = false;
     }
 
-  
-  
-   
+
+
+
     //end of game handling here
   }
 
@@ -487,12 +487,10 @@ void loop() {
     result1 = 0;
     timer = 0;
     tick = 0;
-    
-    
-    
+
+
+
   }
 
 
 }
-
-
