@@ -45,7 +45,7 @@ volatile uint8_t status = 0;
 /*game specific*/
 volatile int tick = 0;
 volatile int timer = 0;
-static int data[MAX_CYCLE] = {0, 1,1,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static int data[MAX_CYCLE] = {0, 1,1,0, 0, 2, 0, 0, 1, 0, 2, 0, 0, 2, 1, 0, 2, 0, 0, 0, 1, 0, 2, 0, 0, 1, 0, 0, 2, 0, 2, 0};
 static int results[MAX_CYCLE-1];
 int result;
 
@@ -81,7 +81,7 @@ bool isRightAction = false;
 bool timerAction = false;
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 113); // server IP address
+IPAddress serverIP(192, 168, 1, 102); // server IP address
 IPAddress ownIP(192, 168, 1, hardware_ID);
 unsigned int serverPort = 6280;   //server remote port to connect to 
 EthernetClient client;

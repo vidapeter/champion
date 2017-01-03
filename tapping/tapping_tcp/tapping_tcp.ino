@@ -19,20 +19,21 @@
 #include "PinChangeInterruptPins.h"
 #include "PinChangeInterruptSettings.h"
 
-#if 1
+#if 0
 #define DEVMODE
 #endif
 
 /* GAME PREFERENCES */
 
-#define hardware_ID 30    /*Unique hardware ID used for identification*/
+#define hardware_ID 7    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
 /*Game specific defines*/
 #define rightLED 3
-#define middLED 2
-#define leftLED 1
+#define midRED 0
+#define leftLED 2
+#define midGREEN A2
 #define INT 8
 
 
@@ -79,9 +80,9 @@ bool timerFlag = false;
 bool timeoutFlag = false;
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 110); // server IP address
+IPAddress serverIP(192, 168, 1, 104); // server IP address
 IPAddress ownIP(192, 168, 1, hardware_ID);
-unsigned int serverPort = 6280;   //server remote port to connect to
+unsigned int serverPort = 50505;   //server remote port to connect to
 EthernetClient client;
 
 //interrupt functions
@@ -132,8 +133,12 @@ if (!cap.begin(0x5A)) {
 
 
   pinMode(leftLED,OUTPUT);
-  pinMode(middLED,OUTPUT);
+  pinMode(midRED,OUTPUT);
   pinMode(rightLED,OUTPUT);
+  pinMode(midGREEN,OUTPUT);
+
+  digitalWrite(midRED,HIGH);
+  
 
   pinMode(INT, INPUT_PULLUP);
   attachPCINT(digitalPinToPCINT(INT), touched, FALLING);
@@ -156,7 +161,7 @@ void timerInit() {
 }
 
 void initEthernet() {
-  Ethernet.begin(mac,ownIP); // we use DHCP
+  Ethernet.begin(mac); // we use DHCP
 
 
   delay(1000); // give the Ethernet shield a second to initialize
@@ -235,7 +240,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       Serial.println(status);
 
 #endif
-      memset(json, 0, 200);
+      memset(json, 0, 150);
       valid_pkt_received = true;
 
       if (userID == 0 && status == 1) {
@@ -267,6 +272,18 @@ void ConnectServer(){ //WARNING: BLOCKING STATEMENT
   }
 
 }
+
+void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
+
+  if (!client.connected()) {
+    client.stop();
+    while (!client.connect(serverIP, serverPort));
+    client.println(ready);
+
+  }
+
+}
+
 
 void clearData() {
   //deviceID = 0;
@@ -356,6 +373,9 @@ void loop() {
 
     game_started = false;
     int status = 0;
+
+    ConnectServerDefault();
+    
     status = receiveServerMessage(); // waiting for real messages
 #ifdef DEVMODE
     //status = START;
@@ -377,7 +397,26 @@ void loop() {
 
         sendMessage(ack); //simple ack message, no answer
         game_started = true;
+        MsTimer2::set(100, timeout);
         Timer1.setPeriod(5000000);
+
+        //
+        digitalWrite(midGREEN,HIGH);
+        delay(100);
+        digitalWrite(midGREEN,LOW);
+        delay(100);
+        digitalWrite(midGREEN,HIGH);
+        delay(100);
+        digitalWrite(midGREEN,LOW);
+        delay(100);
+        digitalWrite(midGREEN,HIGH);
+        delay(100);
+        digitalWrite(midGREEN,LOW);
+        
+
+        //
+
+        
         Timer1.restart();
         idle_state = false;
         valid_pkt_received = false;
@@ -406,11 +445,20 @@ void loop() {
         touchedFlag = false;
         electrodeRegister = cap.readRegister8(0x00);
 
-        (electrodeRegister >= 2 && electrodeRegister != 4) ? digitalWrite(middLED, HIGH) : digitalWrite(middLED, LOW);
+       if (electrodeRegister >= 2 && electrodeRegister != 4) {
+        digitalWrite(midRED,LOW);
+        digitalWrite(midGREEN, HIGH);
+         
+       }
+       else{
+        digitalWrite(midRED, HIGH);
+        digitalWrite(midGREEN, LOW);
+        
+       }
 
         uint8_t touchedElectrode = electrodeRegister - 2;
 
-        if ((touchedElectrode == 4 || touchedElectrode == 1) && lastTouched != electrodeRegister) {
+        if (((touchedElectrode == 4) || (touchedElectrode == 1)) && lastTouched != electrodeRegister) {
           //MsTimer2::stop();
           if (touchedElectrode == 4) {
             digitalWrite(leftLED,HIGH);
@@ -450,17 +498,23 @@ void loop() {
     //handle game over here
 
     Timer1.stop();
-    digitalWrite(middLED, LOW);
+    digitalWrite(midGREEN, LOW);
+    digitalWrite(midRED, HIGH);
+    digitalWrite(leftLED, LOW);
+    digitalWrite(rightLED,LOW);
+    
+    MsTimer2::set(ACK_TIMEOUT, timeout);
+    
     result1 = counter;
 
     //end of game over handling
-    String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+",\"Result1\":" + (String)(result1)+"}";
+    String result = "{\"Type\":2,\"UserId\" :\"" + (String)(userID)+"\",\"Result1\":" + (String)(result1)+"}";
     sendMessageWithTimeout(result);
     game_over = false;
     idle_state = true;
     clearData();
     counter = 0;
-
+    lastTouched = 0;
 
 
   }

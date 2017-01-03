@@ -1,6 +1,6 @@
 
-#define trigPin 11
-#define echoPin 12
+#define trigPin 6
+#define echoPin 7
 
 #if 1
 #define DEVMODE
@@ -13,6 +13,7 @@ int counter;
 String startButton = "";
 long duration, cm, inches, result;
 long results[3] = {0,0,0};
+ long int faszkacsa = 0;
 
 void setup() {
   #if defined(DEVMODE)
@@ -25,12 +26,28 @@ void setup() {
   #ifdef DEVMODE
     Serial.println("setup finished");
   #endif
+
+   isRegistrationOn = true;
 }
 
 void loop() {
+  //Serial.println("Loop fasz");
     if (isRegistrationOn) {
+      Serial.println("reg fasz");
       if (counter < 3) {
-        measure();
+        Serial.println("Measuringk started");
+
+        while(1){
+          
+        faszkacsa = measure();
+        
+        if(faszkacsa != 0) 
+         break;
+
+         
+        }        
+        results[counter ] = faszkacsa;
+        Serial.println("Faszkacsa");
         delay(250);
         counter++;
       } else {
@@ -53,26 +70,28 @@ void loop() {
     } else {
       while (Serial.available() && isRegistrationOn == false) {
          startButton = (char)Serial.read();
+         isRegistrationOn = true;
         if  (startButton == "x") {
 
-            isRegistrationOn = true;
+            
             #ifdef DEVMODE
               Serial.println("measuring started.");
             #endif
           }
+          isRegistrationOn = true;
         }
       }
     delay(5);
 }
 
-void measure() {
+long  measure() {
   digitalWrite(trigPin, LOW);
   delayMicroseconds(5);
   digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
   digitalWrite(trigPin, LOW);
   duration = pulseIn(echoPin, HIGH);
-  results[counter] = (duration/2) / 29.1;
+  return (duration/2) / 29.1;
 }
 
 long getMinResult(long results[]) {

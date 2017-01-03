@@ -25,15 +25,15 @@
 
 /* GAME PREFERENCES */
 
-#define hardware_ID 30    /*Unique hardware ID used for identification*/
+#define hardware_ID 7    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
 /* Pin definitions */
 
-#define redPin 6
-#define greenPin 7
-#define buttonPin 8
+#define redPin 2
+#define greenPin 3
+#define buttonPin 1
 
 /*Variables*/
 
@@ -81,19 +81,17 @@ bool interruptFlag = false;
 bool isLedOn = false;
 bool gameTimeCounter = false;
 bool waiting = false;
+bool isGreenON = false;
 /*End of additional booleans*/
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 112); // server IP address
-unsigned int serverPort = 6280;   //server remote port to connect to 
-IPAddress ownIP(192, 168, 1, hardware_ID);
+IPAddress serverIP(192, 168, 1, 104); // server IP address
+unsigned int serverPort = 50505;   //server remote port to connect to 
+//IPAddress ownIP(192, 168, 1, hardware_ID);
 EthernetClient client;
 
 //interrupt functions
 
-void timerISR() {
-  timerFlag = true;
-}
 
 
 void timeout() {
@@ -120,6 +118,9 @@ void setup() {
   pinMode(greenPin, OUTPUT);
   pinMode(redPin, OUTPUT);
 
+  digitalWrite(greenPin, LOW);
+  digitalWrite(redPin, HIGH);
+
   attachPCINT(digitalPinToPCINT(buttonPin), buttonPushed, FALLING);
 
   MsTimer2::set(ACK_TIMEOUT, timeout); // 500ms period
@@ -135,7 +136,7 @@ void setup() {
 void timerInit() {
   Timer1.initialize();
   Timer1.setPeriod(5000000);//interrupt every 5 seconds
-  Timer1.attachInterrupt(timerISR);
+  Timer1.attachInterrupt(timerHandler);
   Timer1.stop();
 }
 
@@ -219,7 +220,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       Serial.println(status);
 
 #endif
-      memset(json, 0, 200);
+      memset(json, 0, 150);
       valid_pkt_received = true;
 
       if (userID == 0 && status == 1) {
@@ -247,6 +248,17 @@ void ConnectServer(){ //WARNING: BLOCKING STATEMENT
     client.stop();
     while (!client.connect(serverIP, serverPort));
     client.println(ready2);
+
+  }
+
+}
+
+void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
+
+  if (!client.connected()) {
+    client.stop();
+    while (!client.connect(serverIP, serverPort));
+    client.println(ready);
 
   }
 
@@ -321,15 +333,16 @@ uint8_t sendMessage(String message) {
 /*Game functions only used in looop*/
 
 void buttonPushed() {
-  if (digitalRead(greenPin) == HIGH) { //only after the led is on..
+ // if (digitalRead(greenPin) == HIGH) { //only after the led is on..
     interruptFlag = true;
-  }
+ // }
 }
 
 void initiateLed() {
   delay(random(2000,5000));
-  digitalWrite(greenPin, HIGH);
   digitalWrite(redPin, LOW);
+  digitalWrite(greenPin, HIGH);
+  isGreenON = true;
   start = millis();
 }
 
@@ -342,9 +355,7 @@ void timerHandler() {
     timerCounter = 0;
     digitalWrite(redPin,HIGH);
     digitalWrite(greenPin,LOW);
-  } else {
-    game_over = false;
-    }
+  } 
   }
 }
 
@@ -371,10 +382,11 @@ void loop() {
 
     game_started = false;
     int status = 0;
+    ConnectServerDefault();
     status = receiveServerMessage(); // waiting for real messages
 #ifdef DEVMODE
     //status = START;
-    //valid_pkt_received = true;
+    //valid_pkt_received = true;fc
 #endif  
     if (valid_pkt_received) {
 
@@ -394,6 +406,7 @@ void loop() {
         game_started = true;
         Timer1.setPeriod(5000000);
         Timer1.attachInterrupt(timerHandler);
+        Timer1.stop();
         Timer1.restart();
         idle_state = false;
         valid_pkt_received = false;
@@ -432,6 +445,8 @@ void loop() {
 
     if (interruptFlag) {
       // handle timer interrupt here
+      if(isGreenON){
+        isGreenON = false;
        roundCounter++;
 
         stop = millis();
@@ -451,6 +466,8 @@ void loop() {
           interruptFlag = false;
         }
       }
+        //..
+      }
     }
 
     //end of game handling here
@@ -466,7 +483,9 @@ if (game_over) {
     sendMessageWithTimeout(result);
     game_over = false;
     idle_state = true;
+    interruptFlag = false;
     clearData();
+    
     
     
     

@@ -22,7 +22,7 @@
 #define COUNTER 12
 #define PULSE 50
 
-#define OUT	10
+#define OUT	1
 
 String inputString = "";
 

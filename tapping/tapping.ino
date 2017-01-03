@@ -7,11 +7,12 @@
 #include <TimerOne.h>
 #include "MsTimer2.h"
 
-#define rightLED 13
-#define middLED 12
-#define leftLED 11
+#define rightLED 3
+#define middLED 2
+#define leftLED 0
+#define  middLEDGreen A2
 
-#if 0
+#if 1
 #define DEVMODE
 #endif
 

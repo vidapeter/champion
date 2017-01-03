@@ -23,12 +23,12 @@
 
 /* GAME PREFERENCES */
 
-#define hardware_ID 30    /*Unique hardware ID used for identification*/
+#define hardware_ID 7    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
-#define greenPin 12
-#define rightButtonPin 8
+#define greenPin 4
+#define rightButtonPin 5
 #define leftButtonPin 7
 
 /*Variables*/
@@ -77,9 +77,9 @@ bool leftButtonFlag = false;
 bool down_flag = false;
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 112); // server IP address
+IPAddress serverIP(192, 168, 1, 104); // server IP address
 IPAddress ownIP(192, 168, 1, hardware_ID);
-unsigned int serverPort = 6280;   //server remote port to connect to 
+unsigned int serverPort = 50505;   //server remote port to connect to 
 EthernetClient client;
 
 //interrupt functions
@@ -87,7 +87,8 @@ EthernetClient client;
 void timerISR() {
 
     timerCounter++;
-  if (timerCounter == 6) {
+    timerFlag = true;
+  if (timerCounter == 3) {
     game_over = true;
     game_started = false;
     timerCounter = 0;
@@ -131,8 +132,8 @@ void setup() {
   Serial.begin(9600);
 #endif
 
-  pinMode(leftButtonPin, INPUT);
-  pinMode(rightButtonPin, INPUT);
+  pinMode(leftButtonPin, INPUT_PULLUP);
+  pinMode(rightButtonPin, INPUT_PULLUP);
   
    attachPCINT(digitalPinToPCINT(rightButtonPin), rightButtonPushed, FALLING);
   attachPCINT(digitalPinToPCINT(leftButtonPin), leftButtonPushed, FALLING);
@@ -157,7 +158,7 @@ void timerInit() {
 }
 
 void initEthernet() {
-  Ethernet.begin(mac,ownIP); // we use DHCP
+  Ethernet.begin(mac); // we use DHCP
 
 
   delay(1000); // give the Ethernet shield a second to initialize
@@ -170,8 +171,7 @@ void initEthernet() {
     #if defined(DEVMODE)
     Serial.println("connected");
     #endif
-    // Make a HTTP request:
-    //client.println("Hello, a nevem János");
+
   }
   else {
     // if you didn't get a connection to the server:
@@ -237,7 +237,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       Serial.println(status);
 
 #endif
-      memset(json, 0, 200);
+      memset(json, 0, 150);
       valid_pkt_received = true;
 
       if (userID == 0 && status == 1) {
@@ -265,6 +265,17 @@ void ConnectServer(){ //WARNING: BLOCKING STATEMENT
     client.stop();
     while (!client.connect(serverIP, serverPort));
     client.println(ready2);
+
+  }
+
+}
+
+void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
+
+  if (!client.connected()) {
+    client.stop();
+    while (!client.connect(serverIP, serverPort));
+    client.println(ready);
 
   }
 
@@ -351,6 +362,7 @@ void loop() {
 
     game_started = false;
     int status = 0;
+    ConnectServerDefault();
     status = receiveServerMessage(); // waiting for real messages
 #ifdef DEVMODE
     //status = START;
@@ -381,6 +393,7 @@ void loop() {
         #ifdef DEVMODE
         Serial.println("Waiting for jump");
         #endif
+        Timer1.start();
           while(1){
 #ifdef DEVMODE
   Serial.println("right:"+ (String)(rightButtonFlag));
@@ -393,12 +406,19 @@ void loop() {
            #endif
              break;
           }
+
+          if(timerFlag){
+            timerFlag = false;
+            break;
           }
+            }
                 start = millis();
                 attachPCINT(digitalPinToPCINT(rightButtonPin), down, RISING);
                 attachPCINT(digitalPinToPCINT(leftButtonPin), down, RISING);
                 rightButtonFlag = false;
                 leftButtonFlag = false;
+                Timer1.stop();
+                Timer1.restart();
         break;
       default:
         break;
@@ -448,7 +468,7 @@ void loop() {
     result1 = stop - start;
 
     //end of game over handling
-    String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+",\"Result1\":" + (String)(result1)+"}";
+    String result = "{\"Type\":2,\"UserId\" :\"" + (String)(userID)+"\",\"Result1\":" + (String)(result1)+"}";
     sendMessageWithTimeout(result);
     game_over = false;
     idle_state = true;

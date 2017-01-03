@@ -18,13 +18,13 @@
 #include <PinChangeInterruptPins.h>
 #include <PinChangeInterruptSettings.h>
 
-#if 1
+#if 0
 #define DEVMODE
 #endif
 
 /* GAME PREFERENCES */
 
-#define hardware_ID 30    /*Unique hardware ID used for identification*/
+#define hardware_ID 7    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
@@ -93,9 +93,9 @@ static boolean isButtonPushed = false;
 
 /*INTERNET CONFIGURATION*/
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 110); // server IP address
-IPAddress ownIP(192, 168, 1, hardware_ID);
-unsigned int serverPort = 6280;   //server remote port to connect to 
+IPAddress serverIP(192, 168, 1, 104); // server IP address
+//IPAddress ownIP(192, 168, 1, hardware_ID);
+unsigned int serverPort = 50505;   //server remote port to connect to 
 
 
 EthernetClient client;
@@ -106,7 +106,7 @@ EthernetClient client;
 void timerISR() {
   timerFlag = true;
   timer_counter++;
-  if (timer_counter == 6) {
+  if (timer_counter == 5) {
     game_over = true;
     timer_counter = 0;
     //Timer1.stop();
@@ -135,6 +135,7 @@ void initEthernet();
 void timerInit();
 /*Game specific function prototypes*/
 void setRandomAddress();
+void ConnectServerDefault();
 
 void setup() {
 
@@ -173,7 +174,7 @@ void timerInit() {
 }
 
 void initEthernet() {
-  Ethernet.begin(mac,ownIP); // we use DHCP
+  Ethernet.begin(mac); // we use DHCP
 
 
   delay(1000); // give the Ethernet shield a second to initialize
@@ -186,8 +187,8 @@ void initEthernet() {
     #if defined(DEVMODE)
     Serial.println("connected");
     #endif
-    // Make a HTTP request:
-    //client.println("Hello, a nevem János");
+
+    
   }
   else {
     // if you didn't get a connection to the server:
@@ -268,7 +269,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   }
   
   else {
-    ConnectServer();
+    ConnectServerDefault();
     return 0;
   }
   
@@ -280,6 +281,18 @@ void ConnectServer(){ //WARNING: BLOCKING STATEMENT
     client.stop();
     while (!client.connect(serverIP, serverPort));
     client.println(ready2);
+
+  }
+
+}
+
+
+void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
+
+  if (!client.connected()) {
+    client.stop();
+    while (!client.connect(serverIP, serverPort));
+    client.println(ready);
 
   }
 
@@ -469,6 +482,7 @@ void loop() {
 
     game_started = false;
     int status = 0;
+    ConnectServerDefault();
     status = receiveServerMessage(); // waiting for real messages
 #ifdef DEVMODE
     //status = START;
@@ -488,6 +502,7 @@ void loop() {
         Serial.println("Game started");
 #endif
 
+        ConnectServer();
         sendMessage(ack); //simple ack message, no answer 
         game_started = true;
         Timer1.setPeriod(5000000);
@@ -577,7 +592,7 @@ void loop() {
     
 
     //end of game over handling
-    String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+",\"Result1\":" + (String)(result1)+"}";
+    String result = "{\"Type\":2,\"UserId\" :\"" + (String)(userID)+"\",\"Result1\":" + (String)(result1)+"}";
     sendMessageWithTimeout(result);
     game_over = false;
     idle_state = true;
