@@ -31,6 +31,9 @@
 #define SENSOR2 7
 #define MAX_CYCLE 32
 
+#define VIDEO_PIN1 0
+#define VIDEO_PIN2 A2
+
 #define rightLED 3
 #define leftLED 2
 
@@ -91,7 +94,20 @@ void systemTick(){
   timerAction = true;
 }
 
-
+int selectVideo() {
+  int num = random(2);
+  if (num == 1) {
+    digitalWrite(VIDEO_PIN1, HIGH);
+    delay(20);
+    digitalWrite(VIDEO_PIN1, LOW);
+    return 1;
+  } else {
+    digitalWrite(VIDEO_PIN2, HIGH);
+    delay(20);
+    digitalWrite(VIDEO_PIN2, LOW);
+    return 0;
+  }
+}
 
 void timeout() {
   timeoutFlag = true;
@@ -131,6 +147,9 @@ void setup() {
   pinMode(rightLED, OUTPUT);
   pinMode(leftLED, OUTPUT);
 
+  pinMode(VIDEO_PIN1, OUTPUT);
+  pinMode(VIDEO_PIN2, OUTPUT);
+
   attachPCINT(digitalPinToPCINT(SENSOR1), rightAction, FALLING);
   attachPCINT(digitalPinToPCINT(SENSOR2), leftAction, FALLING);
 
@@ -141,6 +160,7 @@ void setup() {
 #ifdef DEVMODE
   Serial.println("Setup finished");
 #endif
+
 
 }
 
@@ -396,6 +416,12 @@ void loop() {
         game_started = true;
         isRightAction = false;
         isLeftAction = false;
+
+        int selectedVideo = selectVideo();
+
+        #ifdef DEVMODE
+          Serial.println(selectedVideo);
+        #endif
 
         break;
       default:
