@@ -27,9 +27,10 @@
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
-#define greenPin 4
-#define rightButtonPin 5
-#define leftButtonPin 7
+#define greenPin 3
+#define redPin 2
+#define SENSOR1 6
+#define SENSOR2 7
 
 /*Variables*/
 
@@ -79,7 +80,7 @@ bool down_flag = false;
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
 IPAddress serverIP(192, 168, 1, 104); // server IP address
 IPAddress ownIP(192, 168, 1, hardware_ID);
-unsigned int serverPort = 50505;   //server remote port to connect to 
+unsigned int serverPort = 50505;   //server remote port to connect to
 EthernetClient client;
 
 //interrupt functions
@@ -95,7 +96,7 @@ void timerISR() {
   } else {
     game_over = false;
   }
-  
+
   //timerFlag = true;
 }
 
@@ -132,11 +133,11 @@ void setup() {
   Serial.begin(9600);
 #endif
 
-  pinMode(leftButtonPin, INPUT_PULLUP);
-  pinMode(rightButtonPin, INPUT_PULLUP);
-  
-   attachPCINT(digitalPinToPCINT(rightButtonPin), rightButtonPushed, FALLING);
-  attachPCINT(digitalPinToPCINT(leftButtonPin), leftButtonPushed, FALLING);
+  pinMode(SENSOR1, INPUT_PULLUP);
+  pinMode(SENSOR2, INPUT_PULLUP);
+
+   attachPCINT(digitalPinToPCINT(SENSOR1), rightButtonPushed, FALLING);
+  attachPCINT(digitalPinToPCINT(SENSOR2), leftButtonPushed, FALLING);
 
 
 
@@ -190,7 +191,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
     received += c;
 
   }
-  
+
 
   if (received != "") {
     StaticJsonBuffer<150> jsonBuffer;
@@ -223,7 +224,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       //type = root["Type"];
       result1 = root["Result1"];
       status = root["Status"];
-      // ha userid = 0 és status = 1 akkor ack, ha 
+      // ha userid = 0 és status = 1 akkor ack, ha
       // userid != 0 akkor start game
 #if defined(DEVMODE)
 
@@ -245,18 +246,18 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       }
       else if (userID == 0 && status != 0)
         return 0;
-      else 
+      else
         return START;
 
-      
+
     }
   }
-  
+
   else {
     ConnectServer();
     return 0;
   }
-  
+
 }
 
 void ConnectServer(){ //WARNING: BLOCKING STATEMENT
@@ -284,7 +285,7 @@ void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
 void clearData() {
   //deviceID = 0;
   userID = "";
-  type = 0; 
+  type = 0;
   result1 = 0;
 
 
@@ -350,8 +351,8 @@ uint8_t sendMessage(String message) {
 
 
 void loop() {
-  
-  
+
+
 
   if (idle_state) {
 
@@ -367,7 +368,7 @@ void loop() {
 #ifdef DEVMODE
     //status = START;
     //valid_pkt_received = true;
-#endif  
+#endif
     if (valid_pkt_received) {
 
       switch (status) {
@@ -382,12 +383,16 @@ void loop() {
         //Serial.println("Game started");
 #endif
 
-        sendMessage(ack); //simple ack message, no answer 
+        sendMessage(ack); //simple ack message, no answer
         game_started = true;
         Timer1.setPeriod(5000000);
         Timer1.restart();
         idle_state = false;
         valid_pkt_received = false;
+
+        if (digitalRead(SENSOR1) == 0 && digitalRead(SENSOR2) == 0) {
+          digitalWrite(greenPin, HIGH);
+        }
 
         //waiting for stepping at the right place, if stepped, code rolls over
         #ifdef DEVMODE
@@ -395,42 +400,38 @@ void loop() {
         #endif
         Timer1.start();
           while(1){
-#ifdef DEVMODE
-  Serial.println("right:"+ (String)(rightButtonFlag));
-   Serial.println("left:"+ (String)(leftButtonFlag));
-  #endif
-            
-          if((rightButtonFlag == true) && (leftButtonFlag == true)){
             #ifdef DEVMODE
-           Serial.println("jumped");
-           #endif
-             break;
-          }
+              Serial.println("right:"+ (String)(rightButtonFlag));
+              Serial.println("left:"+ (String)(leftButtonFlag));
+            #endif
 
-          if(timerFlag){
-            timerFlag = false;
-            break;
-          }
+            if((rightButtonFlag == true) && (leftButtonFlag == true)){
+              #ifdef DEVMODE
+                Serial.println("jumped");
+              #endif
+              break;
+              digitalWrite(redPin, HIGH);
             }
-                start = millis();
-                attachPCINT(digitalPinToPCINT(rightButtonPin), down, RISING);
-                attachPCINT(digitalPinToPCINT(leftButtonPin), down, RISING);
-                rightButtonFlag = false;
-                leftButtonFlag = false;
-                Timer1.stop();
-                Timer1.restart();
-        break;
-      default:
-        break;
 
-
+            if(timerFlag){
+              timerFlag = false;
+            break;
+            }
+        }
+        start = millis();
+        attachPCINT(digitalPinToPCINT(SENSOR1), down, RISING);
+        attachPCINT(digitalPinToPCINT(SENSOR2), down, RISING);
+        rightButtonFlag = false;
+        leftButtonFlag = false;
+        digitalWrite(redPin, LOW);
+        Timer1.stop();
+        Timer1.restart();
+        break;
+        default:
+          break;
       }
-
     }
-    
   }
-
-
 
   if (game_started) {
     //start and handle the game here
@@ -447,16 +448,6 @@ void loop() {
         rightButtonFlag = false;
         leftButtonFlag = false;
         down_flag = false;
-    }
-
-  
-
-  
-    
-
-
-    if (timerFlag) {
-      
     }
 
     //end of game handling here
@@ -476,13 +467,11 @@ void loop() {
     timerCounter =0;
     result1 = 0;
 
-  attachPCINT(digitalPinToPCINT(rightButtonPin), rightButtonPushed, FALLING);
-  attachPCINT(digitalPinToPCINT(leftButtonPin), leftButtonPushed, FALLING);
-    
-    
+  attachPCINT(digitalPinToPCINT(SENSOR1), rightButtonPushed, FALLING);
+  attachPCINT(digitalPinToPCINT(SENSOR2), leftButtonPushed, FALLING);
+
+
   }
 
 
 }
-
-
