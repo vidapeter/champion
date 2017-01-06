@@ -19,10 +19,11 @@
 
 /* GAME PREFERENCES */
 
-#define hardware_ID 1    /*Unique hardware ID used for identification*/
+#define hardware_ID 101    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
-#define MEASURE_PIN 5
+#define trigPin 6
+#define echoPin 7
 /*Variables*/
 
 char json[150];
@@ -31,6 +32,8 @@ volatile uint8_t type = 0;
 volatile uint16_t result1 = 0;
 volatile uint16_t result2 = 0;
 volatile uint8_t status = 0;
+long height = 0;
+long weight = 0;
 
 #ifdef DEVMODE
 int error = 0;
@@ -58,9 +61,9 @@ bool timerFlag = false;
 bool timeoutFlag = false;
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 118); // server IP address
-IPAddress ownIP(192, 168, 2, hardware_ID);
-unsigned int serverPort = 6280;   //server remote port to connect to 
+IPAddress serverIP(192, 168, 1, 100); // server IP address
+IPAddress ownIP(192, 168, 1, hardware_ID);
+unsigned int serverPort = 50505;   //server remote port to connect to 
 EthernetClient client;
 
 //interrupt functions
@@ -79,6 +82,7 @@ void timeout() {
 int receiveServerMessage();
 
 void ConnectServer();
+ void ConnectServerDefault();
 void clearData();
 uint8_t  sendMessageWithTimeout(String message);
 void initEthernet();
@@ -86,10 +90,10 @@ void timerInit();
 
 void setup() {
 
-#if defined(DEVMODE)
   Serial.begin(9600);
-#endif
-  pinMode(MEASURE_PIN,OUTPUT);
+    pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
   MsTimer2::set(ACK_TIMEOUT, timeout); // 500ms period
   timerInit();
   initEthernet();
@@ -121,8 +125,7 @@ void initEthernet() {
     #if defined(DEVMODE)
     Serial.println("connected");
     #endif
-    // Make a HTTP request:
-    //client.println("Hello, a nevem János");
+
   }
   else {
     // if you didn't get a connection to the server:
@@ -188,7 +191,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       Serial.println(status);
 
 #endif
-      memset(json, 0, 200);
+      memset(json, 0, 150);
       valid_pkt_received = true;
 
       if (userID == 0 && status == 1) {
@@ -204,7 +207,11 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   }
   
   else {
-    ConnectServer();
+     if(idle_state){
+      ConnectServerDefault();
+    }else{
+      ConnectServer();
+    }
     return 0;
   }
   
@@ -218,6 +225,17 @@ void ConnectServer(){ //WARNING: BLOCKING STATEMENT
     client.println(ready2);
 
   }
+}
+
+  void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
+
+  if (!client.connected()) {
+    client.stop();
+    while (!client.connect(serverIP, serverPort));
+    client.println(ready);
+
+  }
+
 
 }
 
@@ -266,15 +284,19 @@ uint8_t sendMessageWithTimeout(String message) {
 
     }
 
+    
     if (retries >= MAX_RETRIES) {
-
+      client.println(ready); // if too many retries happened, sending ready with status 3
 #ifdef DEVMODE
       Serial.println("Max tries reached");
 #endif
 
       break;
 
-      }
+    }else{
+      client.println(ready2); // sending ready with status 5
+    }
+
 
     }
     return client.connected();
@@ -287,24 +309,16 @@ uint8_t sendMessage(String message) {
 
 }
 
-unsigned long measure()
-{
-  pinMode(ultraSoundSignal, OUTPUT); // Switch signalpin to output
-  digitalWrite(ultraSoundSignal, LOW); // Send low pulse
-  delayMicroseconds(2); // Wait for 2 microseconds
-  digitalWrite(ultraSoundSignal, HIGH); // Send high pulse
-  delayMicroseconds(5); // Wait for 5 microseconds
-  digitalWrite(ultraSoundSignal, LOW); // Holdoff
-  pinMode(ultraSoundSignal, INPUT); // Switch signalpin to input
-  digitalWrite(ultraSoundSignal, HIGH); // Turn on pullup resistor
-  // please note that pulseIn has a 1sec timeout, which may
-  // not be desirable. Depending on your sensor specs, you
-  // can likely bound the time like this -- marcmerlin
-  // echo = pulseIn(ultraSoundSignal, HIGH, 38000)
-  echo = pulseIn(ultraSoundSignal, HIGH); //Listen for echo
-  ultrasoundValue = (echo / 58.138) * .39; //convert to CM then to inches
-  return ultrasoundValue;
+long  measure_height() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(5);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+long  duration = pulseIn(echoPin, HIGH);
+  return (duration/2) / 29.1;
 }
+
 
 
 
@@ -321,6 +335,7 @@ void loop() {
 
     game_started = false;
     int status = 0;
+    ConnectServerDefault();
     status = receiveServerMessage(); // waiting for real messages
 #ifdef DEVMODE
     //status = START;
@@ -342,8 +357,8 @@ void loop() {
 
         sendMessage(ack); //simple ack message, no answer 
         game_started = true;
-        Timer1.setPeriod(5000000);
-        Timer1.restart();
+       // Timer1.setPeriod(5000000);
+       // Timer1.restart();
         idle_state = false;
         valid_pkt_received = false;
 
@@ -366,8 +381,19 @@ void loop() {
 #ifdef DEVMODE
     Serial.println("Game is running");
 #endif
+      long start = millis();
+       while(1){
+        height = measure_height();
 
-        measure();
+        if(height!= 0){
+          break;  //break if not zero data
+        }
+
+        if(start -millis() > 1000){
+          break; // break if timeout
+        }
+       }
+       
       //measure_weight();
 
       /*After measuring*/
@@ -388,11 +414,12 @@ void loop() {
 
   if (game_over) {
     //handle game over here
-    Timer1.stop();
-    result1 = 1234;
+    //Timer1.stop();
+    result1 = 250-height;
+    result2 = weight;
 
     //end of game over handling
-    String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+",\"Result1\":" + (String)(result1)+"}";
+    String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+",\"Result1\":" + (String)(result1)+",\"Result2\":" + (String)(result2)+"}";
     sendMessageWithTimeout(result);
     game_over = false;
     idle_state = true;

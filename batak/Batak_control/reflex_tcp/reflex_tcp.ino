@@ -18,13 +18,13 @@
 #include <PinChangeInterruptPins.h>
 #include <PinChangeInterruptSettings.h>
 
-#if 0
+#if 1
 #define DEVMODE
 #endif
 
 /* GAME PREFERENCES */
 
-#define hardware_ID 7    /*Unique hardware ID used for identification*/
+#define hardware_ID 161    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
@@ -93,8 +93,8 @@ static boolean isButtonPushed = false;
 
 /*INTERNET CONFIGURATION*/
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 104); // server IP address
-//IPAddress ownIP(192, 168, 1, hardware_ID);
+IPAddress serverIP(192, 168, 1, 100); // server IP address
+IPAddress ownIP(192, 168, 1, hardware_ID);
 unsigned int serverPort = 50505;   //server remote port to connect to 
 
 
@@ -129,6 +129,7 @@ void btn_pushed(){
 int receiveServerMessage();
 
 void ConnectServer();
+
 void clearData();
 uint8_t  sendMessageWithTimeout(String message);
 void initEthernet();
@@ -174,7 +175,7 @@ void timerInit() {
 }
 
 void initEthernet() {
-  Ethernet.begin(mac); // we use DHCP
+  Ethernet.begin(mac,ownIP); // we use DHCP
 
 
   delay(1000); // give the Ethernet shield a second to initialize
@@ -184,6 +185,7 @@ void initEthernet() {
 
   // if you get a connection, report back via serial:
   if (client.connect(serverIP, serverPort)) {
+    
     #if defined(DEVMODE)
     Serial.println("connected");
     #endif
@@ -253,7 +255,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       Serial.println(status);
 
 #endif
-      memset(json, 0, 200);
+      memset(json, 0, 150);
       valid_pkt_received = true;
 
       if (userID == 0 && status == 1) {
@@ -269,7 +271,11 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   }
   
   else {
-    ConnectServerDefault();
+     if(idle_state){
+      ConnectServerDefault();
+    }else{
+      ConnectServer();
+    }
     return 0;
   }
   
@@ -343,15 +349,20 @@ uint8_t sendMessageWithTimeout(String message) {
 
     }
 
-    if (retries >= MAX_RETRIES) {
+    client.stop(); // no ack, disconnecting
+    client.connect(serverIP, serverPort); //reconnecting
 
+    if (retries >= MAX_RETRIES) {
+      client.println(ready); // if too many retries happened, sending ready with status 3
 #ifdef DEVMODE
       Serial.println("Max tries reached");
 #endif
 
       break;
 
-      }
+    }else{
+      client.println(ready2); // sending ready with status 5
+    }
 
     }
     return client.connected();

@@ -23,7 +23,7 @@
 
 /* GAME PREFERENCES */
 
-#define hardware_ID 30    /*Unique hardware ID used for identification*/
+#define hardware_ID 7    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 /*Game specific*/
@@ -84,9 +84,9 @@ bool isRightAction = false;
 bool timerAction = false;
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 102); // server IP address
+IPAddress serverIP(192, 168, 1, 104); // server IP address
 IPAddress ownIP(192, 168, 1, hardware_ID);
-unsigned int serverPort = 6280;   //server remote port to connect to
+unsigned int serverPort = 50505;   //server remote port to connect to
 EthernetClient client;
 //interrupt functions
 
@@ -417,13 +417,14 @@ void loop() {
         isRightAction = false;
         isLeftAction = false;
 
-        int selectedVideo = selectVideo();
+      //  int selectedVideo = selectVideo();
 
         #ifdef DEVMODE
-          Serial.println(selectedVideo);
+      //    Serial.println(selectedVideo);
         #endif
 
         break;
+        
       default:
         break;
 
@@ -505,7 +506,7 @@ void loop() {
 #endif
 
     //end of game over handling
-    String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+",\"Result1\":" + (String)(result1)+"}";
+    String result = "{\"Type\":2,\"UserId\" :\"" + (String)(userID)+"\",\"Result1\":" + (String)(result1)+"}";
     sendMessageWithTimeout(result,ready2);
     game_over = false;
     idle_state = true;

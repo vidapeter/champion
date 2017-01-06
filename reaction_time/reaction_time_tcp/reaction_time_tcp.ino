@@ -24,8 +24,8 @@
 #endif
 
 /* GAME PREFERENCES */
-
-#define hardware_ID 7    /*Unique hardware ID used for identification*/
+/*Reaction time Ip addresses: 131-136 */
+#define hardware_ID 136    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
@@ -85,9 +85,9 @@ bool isGreenON = false;
 /*End of additional booleans*/
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 104); // server IP address
+IPAddress serverIP(192, 168, 1, 100); // server IP address
 unsigned int serverPort = 50505;   //server remote port to connect to 
-//IPAddress ownIP(192, 168, 1, hardware_ID);
+IPAddress ownIP(192, 168, 1, hardware_ID);
 EthernetClient client;
 
 //interrupt functions
@@ -141,7 +141,7 @@ void timerInit() {
 }
 
 void initEthernet() {
-  Ethernet.begin(mac); // we use DHCP
+  Ethernet.begin(mac,ownIP); // we use DHCP
 
 
   delay(1000); // give the Ethernet shield a second to initialize
@@ -236,7 +236,11 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   }
   
   else {
+   if(idle_state){
+      ConnectServerDefault();
+    }else{
     ConnectServer();
+    }
     return 0;
   }
   
@@ -447,7 +451,7 @@ void loop() {
       // handle timer interrupt here
       if(isGreenON){
         isGreenON = false;
-       roundCounter++;
+      
 
         stop = millis();
         digitalWrite(redPin, HIGH);
@@ -458,6 +462,9 @@ void loop() {
         if (roundCounter < 3) {
           initiateLed();
         }
+
+         roundCounter++;
+        
         if (roundCounter == 3) {
           roundCounter = 0;
           interruptFlag = false;
@@ -465,6 +472,7 @@ void loop() {
           game_started = false;
           interruptFlag = false;
         }
+         
       }
         //..
       }
@@ -476,6 +484,8 @@ void loop() {
 if (game_over) {
     //handle game over here
     Timer1.stop();
+   digitalWrite(greenPin, LOW);
+   digitalWrite(redPin, HIGH); 
     
     //end of game over handling
     result1 = getMinResult(results);
