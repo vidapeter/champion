@@ -17,15 +17,20 @@
 #include "PinChangeInterruptBoards.h"
 #include "PinChangeInterruptPins.h"
 #include "PinChangeInterruptSettings.h"
+#include <avr/wdt.h>
 /*End of additional libraries /*
 
 #if 0
 #define DEVMODE
 #endif
 
+#if 1
+#define WDT
+#endif
+
 /* GAME PREFERENCES */
 /*Reaction time Ip addresses: 131-136 */
-#define hardware_ID 136    /*Unique hardware ID used for identification*/
+#define hardware_ID 131    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
@@ -52,12 +57,12 @@ int roundCounter = 0;
 long results[3] = {0,0,0};
 /*End of game defined variables*/
 
-#ifdef DEVMODE
+#ifdef DEVMOD
 int error = 0;
 #endif
 
 String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
-String ready2 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
+String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 
@@ -99,17 +104,45 @@ void timeout() {
 }
 
 
+void buttonPushed() {
+ // if (digitalRead(greenPin) == HIGH) { //only after the led is on..
+    interruptFlag = true;
+ // }
+}
+
+
+void timerHandler() {
+  if (game_started){
+  timerCounter++;
+  if (timerCounter == 4) {
+    game_over = true;
+    game_started = false;
+    timerCounter = 0;
+    digitalWrite(redPin,HIGH);
+    digitalWrite(greenPin,LOW);
+  } 
+  }
+}
+
+void reset(){
+  wdt_enable(WDTO_15MS);
+  while(1);
+}
+
+
+
 //function prototypes
 int receiveServerMessage();
 
 void ConnectServer();
+void ConnectServerDefault();
 void clearData();
 uint8_t  sendMessageWithTimeout(String message);
 void initEthernet();
 void timerInit();
 
 void setup() {
-
+ wdt_disable(); // disable watchdog timer
 #if defined(DEVMODE)
   Serial.begin(9600);
 #endif
@@ -151,6 +184,7 @@ void initEthernet() {
 
   // if you get a connection, report back via serial:
   if (client.connect(serverIP, serverPort)) {
+    
     #if defined(DEVMODE)
     Serial.println("connected");
     #endif
@@ -239,19 +273,22 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
    if(idle_state){
       ConnectServerDefault();
     }else{
-    ConnectServer();
-    }
+      ConnectServer();
+    
     return 0;
   }
   
 }
-
+}
 void ConnectServer(){ //WARNING: BLOCKING STATEMENT
 
   if (!client.connected()) {
     client.stop();
     while (!client.connect(serverIP, serverPort));
-    client.println(ready2);
+    //client.connect(serverIP, serverPort);
+    sendMessageWithTimeout(ready5);
+
+    
 
   }
 
@@ -261,8 +298,11 @@ void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
 
   if (!client.connected()) {
     client.stop();
+    reset();
     while (!client.connect(serverIP, serverPort));
-    client.println(ready);
+    //client.connect(serverIP, serverPort);
+    sendMessageWithTimeout(ready);
+
 
   }
 
@@ -281,7 +321,11 @@ uint8_t sendMessageWithTimeout(String message) {
   //String message = "{ \"Type\":" + (String)(3) + "\"DeviceId\":" + (String)(hardware_ID)+",\"Status\" :" + (String)(1)+"}";
   uint8_t retries = 0;
 
+if(idle_state){
+  ConnectServerDefault();
+}else{
   ConnectServer();
+}
 
   MsTimer2::start();
   while (1) {
@@ -313,15 +357,28 @@ uint8_t sendMessageWithTimeout(String message) {
 
     }
 
-    if (retries >= MAX_RETRIES) {
+    client.stop(); // no ack, disconnecting
+    client.connect(serverIP, serverPort); //reconnecting
 
+    if (retries >= MAX_RETRIES) {
+      
+      client.stop();
+      reset();
+      client.println(ready); // if too many retries happened, sending ready with status 3
 #ifdef DEVMODE
       Serial.println("Max tries reached");
 #endif
 
       break;
 
+    }else{
+      if(idle_state){
+      client.println(ready); // sending ready with status 3
+      }else{
+       client.println(ready5); // status 5 
       }
+    }
+
 
     }
     return client.connected();
@@ -336,37 +393,19 @@ uint8_t sendMessage(String message) {
 
 /*Game functions only used in looop*/
 
-void buttonPushed() {
- // if (digitalRead(greenPin) == HIGH) { //only after the led is on..
-    interruptFlag = true;
- // }
-}
 
 void initiateLed() {
-  delay(random(2000,5000));
+  delay(random(2000L,4000L));
   digitalWrite(redPin, LOW);
   digitalWrite(greenPin, HIGH);
   isGreenON = true;
   start = millis();
 }
 
-void timerHandler() {
-  if (game_started){
-  timerCounter++;
-  if (timerCounter == 4) {
-    game_over = true;
-    game_started = false;
-    timerCounter = 0;
-    digitalWrite(redPin,HIGH);
-    digitalWrite(greenPin,LOW);
-  } 
-  }
-}
-
 long getMinResult(long results[]) {
   long min = results[0];
   for (int i=0;i<3;i++) {
-    if (min > results[i] && (results[i] != 0)) {
+    if ((min < results[i]) && (results[i] != 0)) {
       min = results[i];
     }
     results[i] = 0;
@@ -449,15 +488,18 @@ void loop() {
 
     if (interruptFlag) {
       // handle timer interrupt here
+      disablePCINT(buttonPin);
       if(isGreenON){
         isGreenON = false;
       
 
+        
+        
         stop = millis();
         digitalWrite(redPin, HIGH);
         digitalWrite(greenPin, LOW);
         interruptFlag = false;
-        results[roundCounter-1] = stop - start;
+        results[roundCounter] = stop - start;
 
         if (roundCounter < 3) {
           initiateLed();
@@ -472,9 +514,12 @@ void loop() {
           game_started = false;
           interruptFlag = false;
         }
+
+        
          
       }
         //..
+       enablePCINT(buttonPin);
       }
     }
 

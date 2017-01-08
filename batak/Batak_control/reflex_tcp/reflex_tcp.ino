@@ -17,14 +17,15 @@
 #include <PinChangeInterruptBoards.h>
 #include <PinChangeInterruptPins.h>
 #include <PinChangeInterruptSettings.h>
+#include <avr/wdt.h>
 
-#if 1
+#if 0
 #define DEVMODE
 #endif
 
 /* GAME PREFERENCES */
-
-#define hardware_ID 161    /*Unique hardware ID used for identification*/
+/*IP 192.168.1.161-166*/
+#define hardware_ID 166    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
@@ -69,7 +70,7 @@ int error = 0;
 #endif
 
 String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
-String ready2 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
+String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 
@@ -125,6 +126,11 @@ void btn_pushed(){
 }
 
 
+void reset(){
+  wdt_enable(WDTO_15MS);
+  while(1);
+}
+
 //function prototypes
 int receiveServerMessage();
 
@@ -134,7 +140,7 @@ void clearData();
 uint8_t  sendMessageWithTimeout(String message);
 void initEthernet();
 void timerInit();
-/*Game specific function prototypes*/
+/*Gamde specific function prototypes*/
 void setRandomAddress();
 void ConnectServerDefault();
 
@@ -175,7 +181,7 @@ void timerInit() {
 }
 
 void initEthernet() {
-  Ethernet.begin(mac,ownIP); // we use DHCP
+  Ethernet.begin(mac,ownIP); 
 
 
   delay(1000); // give the Ethernet shield a second to initialize
@@ -286,7 +292,7 @@ void ConnectServer(){ //WARNING: BLOCKING STATEMENT
   if (!client.connected()) {
     client.stop();
     while (!client.connect(serverIP, serverPort));
-    client.println(ready2);
+    client.println(ready5);
 
   }
 
@@ -297,6 +303,7 @@ void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
 
   if (!client.connected()) {
     client.stop();
+    reset();
     while (!client.connect(serverIP, serverPort));
     client.println(ready);
 
@@ -317,7 +324,11 @@ uint8_t sendMessageWithTimeout(String message) {
   //String message = "{ \"Type\":" + (String)(3) + "\"DeviceId\":" + (String)(hardware_ID)+",\"Status\" :" + (String)(1)+"}";
   uint8_t retries = 0;
 
+if(idle_state){
+  ConnectServerDefault();
+}else{
   ConnectServer();
+}
 
   MsTimer2::start();
   while (1) {
@@ -353,6 +364,9 @@ uint8_t sendMessageWithTimeout(String message) {
     client.connect(serverIP, serverPort); //reconnecting
 
     if (retries >= MAX_RETRIES) {
+      client.stop();
+      reset();
+      ///resetting, no mentionable below
       client.println(ready); // if too many retries happened, sending ready with status 3
 #ifdef DEVMODE
       Serial.println("Max tries reached");
@@ -361,7 +375,14 @@ uint8_t sendMessageWithTimeout(String message) {
       break;
 
     }else{
-      client.println(ready2); // sending ready with status 5
+     
+
+  if(idle_state){
+      client.println(ready); // sending ready with status 5
+      }else{
+       client.println(ready5); 
+      }
+      
     }
 
     }
