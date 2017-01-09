@@ -16,20 +16,21 @@
 #include "PinChangeInterruptBoards.h"
 #include "PinChangeInterruptPins.h"
 #include "PinChangeInterruptSettings.h"
+#include <avr/wdt.h>
 
-#if 1
+#if 0
 #define DEVMODE
 #endif
 
 /* GAME PREFERENCES */
-
-#define hardware_ID 7    /*Unique hardware ID used for identification*/
+/*192.168.1.121-126*/
+#define hardware_ID 122    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
 #define greenPin 3
 #define redPin 2
-#define SENSOR1 6
+#define SENSOR1 5
 #define SENSOR2 7
 
 /*Variables*/
@@ -52,7 +53,7 @@ int error = 0;
 #endif
 
 String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
-String ready2 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
+String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 
@@ -78,7 +79,7 @@ bool leftButtonFlag = false;
 bool down_flag = false;
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 104); // server IP address
+IPAddress serverIP(192, 168, 1, 100); // server IP address
 IPAddress ownIP(192, 168, 1, hardware_ID);
 unsigned int serverPort = 50505;   //server remote port to connect to
 EthernetClient client;
@@ -89,7 +90,7 @@ void timerISR() {
 
     timerCounter++;
     timerFlag = true;
-  if (timerCounter == 3) {
+  if (timerCounter == 6) {
     game_over = true;
     game_started = false;
     timerCounter = 0;
@@ -102,6 +103,7 @@ void timerISR() {
 
 
 void timeout() {
+
   timeoutFlag = true;
 }
 
@@ -118,10 +120,16 @@ void down(){
   down_flag = true;
 }
 
+void reset(){
+  wdt_enable(WDTO_15MS);
+  while(1);
+}
+
 //function prototypes
 int receiveServerMessage();
 
 void ConnectServer();
+void ConnectServerDefault();
 void clearData();
 uint8_t  sendMessageWithTimeout(String message);
 void initEthernet();
@@ -135,9 +143,11 @@ void setup() {
 
   pinMode(SENSOR1, INPUT_PULLUP);
   pinMode(SENSOR2, INPUT_PULLUP);
+    pinMode(redPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
 
-   attachPCINT(digitalPinToPCINT(SENSOR1), rightButtonPushed, FALLING);
-  attachPCINT(digitalPinToPCINT(SENSOR2), leftButtonPushed, FALLING);
+        attachPCINT(digitalPinToPCINT(SENSOR1), down, FALLING);
+        attachPCINT(digitalPinToPCINT(SENSOR2), down, FALLING); //alapból 1
 
 
 
@@ -145,6 +155,8 @@ void setup() {
   timerInit();
   initEthernet();
   sendMessageWithTimeout(ready);
+  digitalWrite(redPin, LOW);
+  digitalWrite(greenPin, HIGH);
 #ifdef DEVMODE
   Serial.println("Setup finished");
 #endif
@@ -159,7 +171,7 @@ void timerInit() {
 }
 
 void initEthernet() {
-  Ethernet.begin(mac); // we use DHCP
+  Ethernet.begin(mac,ownIP); // we use DHCP
 
 
   delay(1000); // give the Ethernet shield a second to initialize
@@ -254,7 +266,11 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   }
 
   else {
-    ConnectServer();
+     if(idle_state){
+      ConnectServerDefault();
+    }else{
+      ConnectServer();
+    }
     return 0;
   }
 
@@ -265,7 +281,7 @@ void ConnectServer(){ //WARNING: BLOCKING STATEMENT
   if (!client.connected()) {
     client.stop();
     while (!client.connect(serverIP, serverPort));
-    client.println(ready2);
+    client.println(ready5);
 
   }
 
@@ -275,6 +291,7 @@ void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
 
   if (!client.connected()) {
     client.stop();
+    reset();
     while (!client.connect(serverIP, serverPort));
     client.println(ready);
 
@@ -295,7 +312,11 @@ uint8_t sendMessageWithTimeout(String message) {
   //String message = "{ \"Type\":" + (String)(3) + "\"DeviceId\":" + (String)(hardware_ID)+",\"Status\" :" + (String)(1)+"}";
   uint8_t retries = 0;
 
+ if(idle_state){
+  ConnectServerDefault();
+}else{
   ConnectServer();
+}
 
   MsTimer2::start();
   while (1) {
@@ -326,15 +347,26 @@ uint8_t sendMessageWithTimeout(String message) {
 #endif
 
     }
+     client.stop(); // no ack, disconnecting
+    client.connect(serverIP, serverPort); //reconnecting
 
     if (retries >= MAX_RETRIES) {
-
+      client.stop();
+      reset();
+      ///resetting, no mentionable below
+      client.println(ready); // if too many retries happened
 #ifdef DEVMODE
       Serial.println("Max tries reached");
 #endif
 
       break;
 
+      }else{
+         if(idle_state){
+      client.println(ready); // sending ready with status 5
+      }else{
+       client.println(ready5); 
+      }
       }
 
     }
@@ -352,6 +384,7 @@ uint8_t sendMessage(String message) {
 
 void loop() {
 
+  
 
 
   if (idle_state) {
@@ -361,6 +394,15 @@ void loop() {
     //delay(50);
 #endif
 
+    if((!digitalRead(SENSOR1)) || (!digitalRead(SENSOR2))){
+      digitalWrite(redPin,HIGH);
+      digitalWrite(greenPin,LOW); //ha belepunk vöröss
+      
+    }else{
+      digitalWrite(redPin,LOW); //ha nem lépünk be, zöld
+      digitalWrite(greenPin,HIGH);
+    }
+    
     game_started = false;
     int status = 0;
     ConnectServerDefault();
@@ -386,49 +428,70 @@ void loop() {
         sendMessage(ack); //simple ack message, no answer
         game_started = true;
         Timer1.setPeriod(5000000);
-        Timer1.restart();
+      
         idle_state = false;
         valid_pkt_received = false;
-
-        if (digitalRead(SENSOR1) == 0 && digitalRead(SENSOR2) == 0) {
-          digitalWrite(greenPin, HIGH);
+        Timer1.stop();
+        Timer1.restart();
+        //először megvárjuk, hogy a sugárba lépjen
+         start = millis();
+         #ifdef DEVMODE
+         Serial.println("varjuk hogy a sugarba lepjen");
+         #endif
+        while(1){
+        if (digitalRead(SENSOR1) == 0 || digitalRead(SENSOR2) == 0) {
+          
+          digitalWrite(greenPin, LOW);
+          digitalWrite(redPin, HIGH);
+          
+          #ifdef DEVMODE
+         Serial.println("belelepett");
+         #endif
+          break;
+          }
+          if(game_over){
+            break;
+          }
         }
-
-        //waiting for stepping at the right place, if stepped, code rolls over
+        
+        // ugrásra várunk
         #ifdef DEVMODE
         Serial.println("Waiting for jump");
         #endif
-        Timer1.start();
-          while(1){
-            #ifdef DEVMODE
-              Serial.println("right:"+ (String)(rightButtonFlag));
-              Serial.println("left:"+ (String)(leftButtonFlag));
-            #endif
-
-            if((rightButtonFlag == true) && (leftButtonFlag == true)){
-              #ifdef DEVMODE
-                Serial.println("jumped");
-              #endif
-              break;
-              digitalWrite(redPin, HIGH);
-            }
-
-            if(timerFlag){
-              timerFlag = false;
-            break;
-            }
-        }
+        stop = 0;
         start = millis();
-        attachPCINT(digitalPinToPCINT(SENSOR1), down, RISING);
-        attachPCINT(digitalPinToPCINT(SENSOR2), down, RISING);
+     
+          while(1){
+
+
+            if((digitalRead(SENSOR1)) && (digitalRead(SENSOR2))){
+             digitalWrite(redPin, LOW);
+             digitalWrite(greenPin, HIGH);
+          #ifdef DEVMODE
+         Serial.println("felugrott");
+         #endif
+              break;
+              
+            }
+
+           if(game_over){
+            break;
+          }
+           
+            }
+        
+        start = millis();
+        delay(80);
+        stop=0;
+        down_flag = false;
+
         rightButtonFlag = false;
         leftButtonFlag = false;
-        digitalWrite(redPin, LOW);
-        Timer1.stop();
-        Timer1.restart();
+        
+        
         break;
-        default:
-          break;
+      //  default:
+         // break;
       }
     }
   }
@@ -437,17 +500,24 @@ void loop() {
     //start and handle the game here
 
 #ifdef DEVMODE
-    Serial.println("Game is running");
+    //Serial.println("Game is running");
 #endif
 
     if (down_flag) {
-        digitalWrite(greenPin, LOW);
+
+        digitalWrite(redPin, LOW);
+        digitalWrite(greenPin, HIGH);
         stop = millis();
         game_over = true;
         game_started = false;
         rightButtonFlag = false;
         leftButtonFlag = false;
         down_flag = false;
+
+        
+         #ifdef DEVMODE
+         Serial.println("leerkezett");
+         #endif
     }
 
     //end of game handling here
@@ -457,6 +527,12 @@ void loop() {
     //handle game over here
     Timer1.stop();
     result1 = stop - start;
+    if(result1>5000){
+      result = 0;
+    }
+      digitalWrite(redPin, LOW);
+      digitalWrite(greenPin,HIGH);
+    
 
     //end of game over handling
     String result = "{\"Type\":2,\"UserId\" :\"" + (String)(userID)+"\",\"Result1\":" + (String)(result1)+"}";
@@ -466,9 +542,11 @@ void loop() {
     clearData();
     timerCounter =0;
     result1 = 0;
+    start = 0;
+    stop = 0;
 
-  attachPCINT(digitalPinToPCINT(SENSOR1), rightButtonPushed, FALLING);
-  attachPCINT(digitalPinToPCINT(SENSOR2), leftButtonPushed, FALLING);
+  //attachPCINT(digitalPinToPCINT(SENSOR1), rightButtonPushed, FALLING);
+  //attachPCINT(digitalPinToPCINT(SENSOR2), leftButtonPushed, FALLING);
 
 
   }

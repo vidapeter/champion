@@ -12,13 +12,14 @@
 #include <ArduinoJson.h>
 #include <TimerOne.h>
 #include <MsTimer2.h>
+#include <avr/wdt.h>
 
 #if 0
 #define DEVMODE
 #endif
 
 /* GAME PREFERENCES */
-
+/*registration 192.168.1.101-108*/
 #define hardware_ID 101    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
@@ -32,15 +33,23 @@ volatile uint8_t type = 0;
 volatile uint16_t result1 = 0;
 volatile uint16_t result2 = 0;
 volatile uint8_t status = 0;
+/*game specific variables*/
 long height = 0;
 long weight = 0;
+uint8_t  data[30];
+int i = 0;
+bool full_sentence = false;
+uint8_t pointer = 7;
+
+uint8_t length = 0;
+long counter = 0;
 
 #ifdef DEVMODE
 int error = 0;
 #endif
 
 String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
-String ready2 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
+String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 
@@ -76,6 +85,12 @@ void timerISR() {
 void timeout() {
   timeoutFlag = true;
 }
+
+void reset(){
+  wdt_enable(WDTO_15MS);
+  while(1);
+}
+
 
 
 //function prototypes
@@ -222,7 +237,7 @@ void ConnectServer(){ //WARNING: BLOCKING STATEMENT
   if (!client.connected()) {
     client.stop();
     while (!client.connect(serverIP, serverPort));
-    client.println(ready2);
+    client.println(ready5);
 
   }
 }
@@ -231,6 +246,7 @@ void ConnectServer(){ //WARNING: BLOCKING STATEMENT
 
   if (!client.connected()) {
     client.stop();
+    reset();
     while (!client.connect(serverIP, serverPort));
     client.println(ready);
 
@@ -252,7 +268,11 @@ uint8_t sendMessageWithTimeout(String message) {
   //String message = "{ \"Type\":" + (String)(3) + "\"DeviceId\":" + (String)(hardware_ID)+",\"Status\" :" + (String)(1)+"}";
   uint8_t retries = 0;
 
+  if(idle_state){
+  ConnectServerDefault();
+}else{
   ConnectServer();
+}
 
   MsTimer2::start();
   while (1) {
@@ -283,9 +303,13 @@ uint8_t sendMessageWithTimeout(String message) {
 #endif
 
     }
-
+        client.stop(); // no ack, disconnecting
     
+
     if (retries >= MAX_RETRIES) {
+      client.stop();
+      reset();
+      ///resetting, no mentionable below
       client.println(ready); // if too many retries happened, sending ready with status 3
 #ifdef DEVMODE
       Serial.println("Max tries reached");
@@ -294,11 +318,17 @@ uint8_t sendMessageWithTimeout(String message) {
       break;
 
     }else{
-      client.println(ready2); // sending ready with status 5
-    }
+     
+      client.connect(serverIP, serverPort); //reconnecting
+      
+  if(idle_state){
+      client.println(ready); // sending ready with status 5
+      }else{
+       client.println(ready5); 
+      }
 
-
     }
+  }
     return client.connected();
   }
 
@@ -319,7 +349,115 @@ long  duration = pulseIn(echoPin, HIGH);
   return (duration/2) / 29.1;
 }
 
+long meause_weight(){
+  
+    while (1)
+    {
+      uint8_t datain = Serial.read();
+      Serial.print(datain, HEX);
+      if (datain == 0x0A) 
+        break;
 
+      counter++;
+      if (counter > 30) {
+          Serial.println("Stuck");
+        }
+      
+
+      
+    }
+   //end of aligning
+
+   
+    Serial.println("");
+    Serial.println("Measuring: ");
+    counter = 0;
+    while (!full_sentence) {
+      uint8_t datain = Serial.read();
+      if (datain == 0x0A)
+      {
+        full_sentence = true;
+      }
+
+      data[i] = datain;
+
+      i++;
+      Serial.print(datain, HEX);
+
+      counter++;
+      if (counter >= 30) {
+        Serial.println("Stuck");
+      }
+
+    }
+
+    full_sentence = false;
+
+    i = 0;
+
+    Serial.println("Sentence");
+    for (int x = 0; x < 30; x++) {
+      //Serial.println("Data: " + (String)(data[x]) + "pos " + String(x));
+
+    }
+    Serial.println("");
+
+    //Serial.println("Calculating");
+
+
+
+    while (data[pointer] == 0x20) {
+      pointer++;
+    }
+
+    //Serial.println("First data byte pos " + (String)(pointer)+"data" + (String)(data[pointer]));
+
+    while (data[pointer] != 0x2E) {
+      length++;
+      pointer++;
+    }
+
+    uint8_t pow = 0;
+    //Serial.println("Pointer " + (String)pointer + "length " + String(length));
+    pointer --;
+
+    switch (length) {
+
+    case 1:
+      Serial.print("Data ");
+      Serial.println(data[pointer]);
+      weight = (data[pointer]) - 48;
+      Serial.println("One");
+      break;
+
+    case 2:
+      weight = (data[pointer]) - 48 + ((data[pointer-1]) - 48)*10;
+      Serial.println("Two");
+      break;
+    case 3:
+      weight = (data[pointer]) - 48 + ((data[pointer - 1]) - 48) * 10 + ((data[pointer - 2]) - 48) * 100;
+      Serial.println("Three");
+      break;
+
+    default:
+      Serial.println("Error");
+       break;
+
+
+
+    }
+
+
+    Serial.println("Calculated weight: " + (String)(weight));
+
+
+    length = 0;
+    pointer = 7;
+    weight = 0;
+
+  return weight;
+
+}
 
 
 void loop() {
@@ -393,7 +531,9 @@ void loop() {
           break; // break if timeout
         }
        }
-       
+        for (int x = 0; x < 30; x++) {
+         data[x] = 0;
+      }
       //measure_weight();
 
       /*After measuring*/

@@ -30,7 +30,7 @@
 
 /* GAME PREFERENCES */
 /*Reaction time Ip addresses: 131-136 */
-#define hardware_ID 131    /*Unique hardware ID used for identification*/
+#define hardware_ID 136    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
@@ -395,7 +395,8 @@ uint8_t sendMessage(String message) {
 
 
 void initiateLed() {
-  delay(random(2000L,4000L));
+  delay(random(2000,4000));
+ // delay(2000);
   digitalWrite(redPin, LOW);
   digitalWrite(greenPin, HIGH);
   isGreenON = true;
@@ -405,7 +406,7 @@ void initiateLed() {
 long getMinResult(long results[]) {
   long min = results[0];
   for (int i=0;i<3;i++) {
-    if ((min < results[i]) && (results[i] != 0)) {
+    if ((min > results[i]) && (results[i] != 0)) {
       min = results[i];
     }
     results[i] = 0;
@@ -448,9 +449,9 @@ void loop() {
         sendMessage(ack); //simple ack message, no answer 
         game_started = true;
         Timer1.setPeriod(5000000);
-        Timer1.attachInterrupt(timerHandler);
-        Timer1.stop();
-        Timer1.restart();
+        //Timer1.attachInterrupt(timerHandler);
+        //Timer1.stop();
+        Timer1.start();
         idle_state = false;
         valid_pkt_received = false;
         /*Game starting*/
@@ -458,6 +459,7 @@ void loop() {
          initiateLed();
          timerFlag = false;
          timeoutFlag = false;
+         roundCounter = 0;
 
         break;
       default:
@@ -496,13 +498,14 @@ void loop() {
         
         
         stop = millis();
-        digitalWrite(redPin, HIGH);
         digitalWrite(greenPin, LOW);
+        digitalWrite(redPin, HIGH);
         interruptFlag = false;
         results[roundCounter] = stop - start;
 
         if (roundCounter < 3) {
           initiateLed();
+          
         }
 
          roundCounter++;
@@ -519,6 +522,7 @@ void loop() {
          
       }
         //..
+        interruptFlag = false;
        enablePCINT(buttonPin);
       }
     }

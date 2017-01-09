@@ -25,7 +25,7 @@
 
 /* GAME PREFERENCES */
 /*IP 192.168.1.161-166*/
-#define hardware_ID 166    /*Unique hardware ID used for identification*/
+#define hardware_ID 115    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
@@ -361,7 +361,7 @@ if(idle_state){
     }
 
     client.stop(); // no ack, disconnecting
-    client.connect(serverIP, serverPort); //reconnecting
+    
 
     if (retries >= MAX_RETRIES) {
       client.stop();
@@ -376,7 +376,8 @@ if(idle_state){
 
     }else{
      
-
+      client.connect(serverIP, serverPort); //reconnecting
+      
   if(idle_state){
       client.println(ready); // sending ready with status 5
       }else{
@@ -612,6 +613,7 @@ void loop() {
     //handle game over here
     Timer1.stop();
     result1 = counter;
+  
     
     #ifdef DEVMODE
       Serial.println("Game ended with " +(String) counter + " points");

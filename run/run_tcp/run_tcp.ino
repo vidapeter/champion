@@ -81,9 +81,9 @@ bool startFlag = false;
 bool finishFlag = false;
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 112); // server IP address
+IPAddress serverIP(192, 168, 1, 100); // server IP address
 IPAddress ownIP(192, 168, 1, hardware_ID);
-unsigned int serverPort = 6280;   //server remote port to connect to 
+unsigned int serverPort = 50505;   //server remote port to connect to 
 EthernetClient client;
 
 //interrupt functions
