@@ -26,7 +26,7 @@
 
 /* GAME PREFERENCES */
 /*TAPPING IP: 111-116*/
-#define hardware_ID 111    /*Unique hardware ID used for identification*/
+#define hardware_ID 116    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
@@ -348,7 +348,7 @@ uint8_t sendMessageWithTimeout(String message) {
     }
 
      client.stop(); // no ack, disconnecting
-    client.connect(serverIP, serverPort); //reconnecting
+    
 
     if (retries >= MAX_RETRIES) {
       client.stop();
@@ -361,10 +361,10 @@ uint8_t sendMessageWithTimeout(String message) {
       break;
 
     }else{
-     
+     client.connect(serverIP, serverPort); //reconnecting
 
   if(idle_state){
-      client.println(ready); // sending ready with status 5
+      client.println(ready); // sending ready with status 3
       }else{
        client.println(ready5); 
       }

@@ -61,6 +61,7 @@ static uint8_t prevY = 0;
 static int statX[4] = { 0,0,0,0 };
 static int statY[4] = { 0,0,0,0 };
 static int x_high = 0;
+long current_time = 0;
 
 uint8_t x;
 uint8_t y;
@@ -158,7 +159,7 @@ void setup() {
 
   pinMode(OUT, INPUT);
 
-    userID.reserve(200);
+  userID.reserve(200); // ez új dolog, most raktam bele, hogy ne legyen baj
 
 
   
@@ -174,6 +175,12 @@ void setup() {
 #ifdef DEVMODE
   Serial.println("Setup finished");
 #endif
+//ezt kellene beletenni: 
+/*
+  current_time = millis();
+  clearAll();
+  setRandomAddress();
+  */
 
 }
 
@@ -518,8 +525,13 @@ void loop() {
 #endif
 
     /*IDE KELL RANDOM VILLOGTATÁS, 1 sec késleltetéssel*
+  if(millis-current_time>1000){ //ha 1 sec letelt
+  clearAll();
+  setRandomAddress();
+  }
   
-  setRandomAddress()
+ 
+  
     
     ss
     */
@@ -645,8 +657,10 @@ void loop() {
     clearAll();
     counter = 0;
     timer_counter = 0;
-    
-    
+    //szintén 
+    /*
+    current_time = millis();
+    */
     
   }
 
