@@ -135,6 +135,12 @@ void setup() {
   pinMode(startPin, INPUT_PULLUP);
   pinMode(finishPin, INPUT_PULLUP);
 
+    userID.reserve(200);
+
+//disable SD card
+  pinMode(4,OUTPUT);
+  digitalWrite(4,HIGH);
+
   attachPCINT(digitalPinToPCINT(startPin), runStarted, FALLING);
   attachPCINT(digitalPinToPCINT(finishPin), runFinished, FALLING);
 

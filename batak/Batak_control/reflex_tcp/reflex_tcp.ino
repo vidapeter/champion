@@ -157,6 +157,10 @@ void setup() {
   }
 
   pinMode(OUT, INPUT);
+
+    userID.reserve(200);
+
+
   
 /*Attach interrupt*/
   attachPCINT(digitalPinToPCINT(OUT), btn_pushed, FALLING);
@@ -512,6 +516,13 @@ void loop() {
     //Serial.println("Idle state");
     //delay(50);
 #endif
+
+    /*IDE KELL RANDOM VILLOGTATÁS, 1 sec késleltetéssel*
+  
+  setRandomAddress()
+    
+    ss
+    */
 
     game_started = false;
     int status = 0;

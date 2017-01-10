@@ -149,6 +149,11 @@ void setup() {
         attachPCINT(digitalPinToPCINT(SENSOR1), down, FALLING);
         attachPCINT(digitalPinToPCINT(SENSOR2), down, FALLING); //alapból 1
 
+  userID.reserve(200);
+
+//disable SD card
+  pinMode(4,OUTPUT);
+  digitalWrite(4,HIGH);
 
 
   MsTimer2::set(ACK_TIMEOUT, timeout); // 500ms period

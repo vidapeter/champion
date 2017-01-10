@@ -151,6 +151,12 @@ void setup() {
   pinMode(greenPin, OUTPUT);
   pinMode(redPin, OUTPUT);
 
+    userID.reserve(200);
+
+//disable SD card
+  pinMode(4,OUTPUT);
+  digitalWrite(4,HIGH);
+
   digitalWrite(greenPin, LOW);
   digitalWrite(redPin, HIGH);
 

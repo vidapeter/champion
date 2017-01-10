@@ -109,6 +109,12 @@ void setup() {
     pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
 
+    userID.reserve(200);
+
+//disable SD card
+  pinMode(4,OUTPUT);
+  digitalWrite(4,HIGH);
+
   MsTimer2::set(ACK_TIMEOUT, timeout); // 500ms period
   timerInit();
   initEthernet();
