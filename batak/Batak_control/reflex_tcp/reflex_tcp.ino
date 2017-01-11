@@ -524,17 +524,11 @@ void loop() {
     //delay(50);
 #endif
 
-    /*IDE KELL RANDOM VILLOGTATÁS, 1 sec késleltetéssel*
-  if(millis-current_time>1000){ //ha 1 sec letelt
+  if(millis() - current_time>1000){ //ha 1 sec letelt
+  current_time = millis();
   clearAll();
   setRandomAddress();
   }
-  
- 
-  
-    
-    ss
-    */
 
     game_started = false;
     int status = 0;
