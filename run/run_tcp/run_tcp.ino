@@ -16,14 +16,15 @@
 #include "PinChangeInterruptBoards.h"
 #include "PinChangeInterruptPins.h"
 #include "PinChangeInterruptSettings.h"
+#include <avr/wdt.h>
 
-#if 1
+#if 0
 #define DEVMODE
 #endif
 
 /* GAME PREFERENCES */
-
-#define hardware_ID 30    /*Unique hardware ID used for identification*/
+/*ip address: 192.168.1.171*/
+#define hardware_ID 171    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
 
@@ -56,7 +57,7 @@ int error = 0;
 #endif
 
 String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
-String ready2 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
+String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 
@@ -117,20 +118,29 @@ void runFinished() {
 
 }
 
+void reset(){
+  wdt_enable(WDTO_15MS);
+  while(1);
+}
+
+
 //function prototypes
 int receiveServerMessage();
 
 void ConnectServer();
+void ConnectServerDefault();
 void clearData();
 uint8_t  sendMessageWithTimeout(String message);
 void initEthernet();
 void timerInit();
 
 void setup() {
-
+ wdt_disable(); // disable watchdog timer
 #if defined(DEVMODE)
   Serial.begin(9600);
 #endif
+
+
 
   pinMode(startPin, INPUT_PULLUP);
   pinMode(finishPin, INPUT_PULLUP);
@@ -259,7 +269,10 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   }
   
   else {
-    ConnectServer();
+    if(idle_state){
+      ConnectServerDefault();
+    }else{
+      ConnectServer();
     return 0;
   }
   
@@ -270,11 +283,23 @@ void ConnectServer(){ //WARNING: BLOCKING STATEMENT
   if (!client.connected()) {
     client.stop();
     while (!client.connect(serverIP, serverPort));
-    client.println(ready2);
+    client.println(ready5);
 
   }
 
 }
+
+void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
+
+  if (!client.connected()) {
+    client.stop();
+    reset();
+    while (!client.connect(serverIP, serverPort));
+    //client.connect(serverIP, serverPort);
+    sendMessageWithTimeout(ready);
+
+
+  }
 
 void clearData() {
   //deviceID = 0;
@@ -287,7 +312,12 @@ uint8_t sendMessageWithTimeout(String message) {
   //String message = "{ \"Type\":" + (String)(3) + "\"DeviceId\":" + (String)(hardware_ID)+",\"Status\" :" + (String)(1)+"}";
   uint8_t retries = 0;
 
+if(idle_state){
+  ConnectServerDefault();
+}else{
   ConnectServer();
+}
+
 
   MsTimer2::start();
   while (1) {
@@ -319,17 +349,30 @@ uint8_t sendMessageWithTimeout(String message) {
 
     }
 
-    if (retries >= MAX_RETRIES) {
+ client.stop(); // no ack, disconnecting
+    client.connect(serverIP, serverPort); //reconnecting
 
+    if (retries >= MAX_RETRIES) {
+      
+      client.stop();
+      reset();
+      client.println(ready); // if too many retries happened, sending ready with status 3
 #ifdef DEVMODE
       Serial.println("Max tries reached");
 #endif
 
       break;
 
+    }else{
+      if(idle_state){
+      client.println(ready); // sending ready with status 3
+      }else{
+       client.println(ready5); // status 5 
       }
 
     }
+
+  }
     return client.connected();
   }
 
@@ -355,6 +398,7 @@ void loop() {
 
     game_started = false;
     int status = 0;
+    ConnectServerDefault();
     status = receiveServerMessage(); // waiting for real messages
 #ifdef DEVMODE
     //status = START;
@@ -467,7 +511,7 @@ void loop() {
     result1 = stop - start;
 
     //end of game over handling
-    String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+",\"Result1\":" + (String)(result1)+"}";
+    String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+"\",\"Result1\":" + (String)(result1)+"}";
     sendMessageWithTimeout(result);
     game_over = false;
     idle_state = true;
