@@ -278,6 +278,8 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   
 }
 
+}
+
 void ConnectServer(){ //WARNING: BLOCKING STATEMENT
 
   if (!client.connected()) {
@@ -300,6 +302,7 @@ void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
 
 
   }
+}
 
 void clearData() {
   //deviceID = 0;
@@ -308,6 +311,7 @@ void clearData() {
   result1 = 0;
 
 }
+
 uint8_t sendMessageWithTimeout(String message) {
   //String message = "{ \"Type\":" + (String)(3) + "\"DeviceId\":" + (String)(hardware_ID)+",\"Status\" :" + (String)(1)+"}";
   uint8_t retries = 0;
