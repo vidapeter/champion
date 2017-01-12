@@ -114,7 +114,7 @@ void buttonPushed() {
 void timerHandler() {
   if (game_started){
   timerCounter++;
-  if (timerCounter == 4) {
+  if (timerCounter == 4) {  //4 because the game time period is 20 minutes, 5 secs 4 times
     game_over = true;
     game_started = false;
     timerCounter = 0;
