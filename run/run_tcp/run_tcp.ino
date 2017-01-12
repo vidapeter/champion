@@ -214,17 +214,23 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   valid_pkt_received = false;
   int count = 0;
   char c = '%';
+  unsigned long maxwait=millis()+ACK_TIMEOUT;
 #if defined(DEVMODE)
-  Serial.print("Received data bytes: " );
+  Serial.print("Buffer data bytes elotte: " );
   Serial.println(client.available());
 #endif
 
 //  while (client.available()) {
-  while (c!='\n') {
+  while (c!='\n' && count<250 && maxwait>millis()) {
     c = client.read();
     if (c!='\n' && c!='\r' && c!=-1) json[count++] = c;
   }
   json[count] = 0; // end of string
+#if defined(DEVMODE)
+  Serial.print("Buffer data bytes utana: " );
+  Serial.println(client.available());
+#endif
+
 #if defined(DEVMODE)
   //Serial.print("Received data:" );
   //Serial.println(json);
@@ -414,8 +420,15 @@ void loop() {
         case START:
           sendMessage(ack); //simple ack message, no answer
 #ifdef DEVMODE
-          Serial.println("Game start command received");
-          Serial.println("waiting for " + (String)timer_delay + " milliseconds (+offset if this is the ledcontroller)");
+          Serial.print("Game start command received, ");
+          Serial.print("waiting for ");
+          Serial.print(timer_delay);
+          Serial.print(" milliseconds "); 
+          if (hardware_ID==175) {
+            Serial.print(ledfaloffsetms);
+            Serial.print(" because ledfal");
+          }
+          Serial.println(".");
 #endif
           start = millis();
           delay(max(0,timer_delay-ledfaltimeout+(hardware_ID==175?ledfaloffsetms:0)));
