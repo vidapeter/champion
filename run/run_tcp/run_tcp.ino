@@ -24,9 +24,9 @@
 
 /* GAME PREFERENCES */
 /*ip address: 192.168.1.171*/
-#define hardware_ID 173    /*Unique hardware ID used for identification*/
+#define hardware_ID 175    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
-#define ACK_TIMEOUT 900   /*Time limit of acknowledge reception*/
+#define ACK_TIMEOUT 1900   /*Time limit of acknowledge reception*/
 
 /*Pin definitions*/
 
@@ -155,21 +155,22 @@ void setup() {
 #endif
 
 
-
-  pinMode(startPin, INPUT_PULLUP);
-  pinMode(finishPin, INPUT_PULLUP);
-
   userID.reserve(200);
 
   //disable SD card
   pinMode(4, OUTPUT);
   digitalWrite(4, HIGH);
 
-  pinMode(ledfalPin, OUTPUT);
-  digitalWrite(ledfalPin, !ledfalresetsignal);
-
-  attachPCINT(digitalPinToPCINT(startPin), runStarted, FALLING);
-  attachPCINT(digitalPinToPCINT(finishPin), runFinished, FALLING);
+  if (hardware_ID!=175) {
+   pinMode(startPin, INPUT_PULLUP);
+   pinMode(finishPin, INPUT_PULLUP);
+   attachPCINT(digitalPinToPCINT(startPin), runStarted, FALLING);
+   attachPCINT(digitalPinToPCINT(finishPin), runFinished, FALLING);
+  }
+  else {
+   pinMode(ledfalPin, OUTPUT);
+   digitalWrite(ledfalPin, !ledfalresetsignal);
+  }
 
 
 
@@ -223,12 +224,16 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
 //  while (client.available()) {
   while (c!='\n' && count<250 && maxwait>millis()) {
     c = client.read();
-    if (c!='\n' && c!='\r' && c!=-1) json[count++] = c;
+    if (c!='\n' && c!='\r' && c!=-1) {
+      json[count++] = c;
+    } else {
+      delay(5);
+    }
   }
   json[count] = 0; // end of string
 #if defined(DEVMODE)
-  Serial.print("Buffer data bytes utana: " );
-  Serial.println(client.available());
+//  Serial.print("Buffer data bytes utana: " );
+//  Serial.println(client.available());
 #endif
 
 #if defined(DEVMODE)
@@ -264,11 +269,21 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       //deviceID = root["DeviceId"];
       //if (deviceID == hardware_ID) {
       String uID = root[(String)("UserId")];
+#if defined(DEVMODE)
+      Serial.print("x1");
+#endif
+
       userID = uID;
       //type = root["Type"];
 //      timer_delay = root["Result1"];
       timer_delay = root["Result"];
+#if defined(DEVMODE)
+      Serial.print("x2");
+#endif
       status = root["Status"];
+#if defined(DEVMODE)
+      Serial.print("x3");
+#endif
       // ha userid = 0 és status = 1 akkor ack, ha
       // userid != 0 akkor start game
 #if defined(DEVMODE)
@@ -398,8 +413,17 @@ uint8_t sendMessageWithTimeout(String message) {
 }
 
 uint8_t sendMessage(String message) {
+#ifdef DEVMODE
+      Serial.println("Sendmsg1");
+#endif
   ConnectServer();
+#ifdef DEVMODE
+//      Serial.println("Sendmsg2");
+#endif
   client.println(message);
+#ifdef DEVMODE
+//      Serial.println("Sendmsg3");
+#endif
   return client.connected();
 }
 
@@ -418,6 +442,10 @@ void loop() {
           clearData();
           break; //skip packet
         case START:
+#ifdef DEVMODE
+          Serial.print("Sending ACK to start");
+#endif
+
           sendMessage(ack); //simple ack message, no answer
 #ifdef DEVMODE
           Serial.print("Game start command received, ");
@@ -474,7 +502,9 @@ void loop() {
     if (startFlag) {
       start = millis();
       stop=0;
+  if (hardware_ID!=175) {
       detachPCINT(digitalPinToPCINT(startPin));
+  }
       startFlag = false;
       timerCounter=0;
 #ifdef DEVMODE
@@ -515,12 +545,21 @@ void loop() {
       Serial.println(result);
 #endif
     sendMessageWithTimeout(result);
+#ifdef DEVMODE
+      Serial.println("GameoverResultSent");
+#endif
     game_over = false;
     idle_state = true;
     clearData();
     start = 0;
     stop = 0;
+  if (hardware_ID!=175) {
     attachPCINT(digitalPinToPCINT(startPin), runStarted, FALLING);
+  }
+#ifdef DEVMODE
+      Serial.println("GameoverResultSentRestart");
+#endif
+
   }
 }
 
