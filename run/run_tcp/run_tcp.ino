@@ -24,7 +24,7 @@
 
 /* GAME PREFERENCES */
 /*ip address: 192.168.1.171*/
-#define hardware_ID 175    /*Unique hardware ID used for identification*/
+#define hardware_ID 173    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 900   /*Time limit of acknowledge reception*/
 
@@ -36,7 +36,7 @@
 #define ledfalPin 3
 #define ledfaltimeout 100
 #define ledfalresetsignal LOW
-
+#define ledfaloffsetms 10000
 /*Variables*/
 int timerCounter = 0;
 unsigned long timer_delay = 0;
@@ -214,16 +214,28 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   valid_pkt_received = false;
   int count = 0;
   char c = '%';
-  while (client.available()) {
+#if defined(DEVMODE)
+  Serial.print("Received data bytes: " );
+  Serial.println(client.available());
+#endif
+
+//  while (client.available()) {
+  while (c!='\n') {
     c = client.read();
-    json[count++] = c;
+    if (c!='\n' && c!='\r' && c!=-1) json[count++] = c;
   }
   json[count] = 0; // end of string
+#if defined(DEVMODE)
+  //Serial.print("Received data:" );
+  //Serial.println(json);
+#endif
 
-  if (count > 0) {
+  if (count > 0) {                                                                                                                                                                                                                                                    
 #ifdef DEVMODE
-    Serial.print("Received:" );
-    Serial.println(json);
+    Serial.println(count);
+    Serial.print("Received: [" );
+    Serial.print(json);
+    Serial.println("]" );
 #endif
     StaticJsonBuffer<150> jsonBuffer;
     //    received.toCharArray(json, received.length());
@@ -314,7 +326,6 @@ void clearData() {
 }
 
 uint8_t sendMessageWithTimeout(String message) {
-  //String message = "{ \"Type\":" + (String)(3) + "\"DeviceId\":" + (String)(hardware_ID)+",\"Status\" :" + (String)(1)+"}";
   uint8_t retries = 0;
 
   if (idle_state) {
@@ -404,10 +415,10 @@ void loop() {
           sendMessage(ack); //simple ack message, no answer
 #ifdef DEVMODE
           Serial.println("Game start command received");
-          Serial.println("waiting for " + (String)timer_delay + " milliseconds");
+          Serial.println("waiting for " + (String)timer_delay + " milliseconds (+offset if this is the ledcontroller)");
 #endif
           start = millis();
-          delay(max(0,timer_delay-ledfaltimeout));
+          delay(max(0,timer_delay-ledfaltimeout+(hardware_ID==175?ledfaloffsetms:0)));
           digitalWrite(ledfalPin, ledfalresetsignal);
           delay(ledfaltimeout);
           digitalWrite(ledfalPin, !ledfalresetsignal);
@@ -484,7 +495,6 @@ void loop() {
     Timer1.stop();
     result1 = stop - start;
 
-    //String result = "{\"Type\":2,\"UserId\" :\"" + (String)(userID) + "\",\"Result1\":" + (String)(result1) + "}";
     String result = "{\"Type\":2,\"UserId\" :\"" + (String)(userID)+"\",\"Result1\":" + (String)(result1)+"}";
 #ifdef DEVMODE
       Serial.println("GameoverResult");
