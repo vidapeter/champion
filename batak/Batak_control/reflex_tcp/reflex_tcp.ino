@@ -108,7 +108,7 @@ EthernetClient client;
 void timerISR() {
   timerFlag = true;
   timer_counter++;
-  if (timer_counter == 5) {
+  if (timer_counter == 5) {  //5 because of the time period is 25 sec (5 sec at 5 times)
     game_over = true;
     timer_counter = 0;
     //Timer1.stop();
