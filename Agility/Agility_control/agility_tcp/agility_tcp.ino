@@ -1,10 +1,10 @@
 /******************************************************************
-*
-* ChampLab basic schema for designing game applications
-* @Author Daniel Husztik
-* husztikd@gmail.com
-*
-*
+
+  ChampLab basic schema for designing game applications
+  @Author Daniel Husztik
+  husztikd@gmail.com
+
+
 ******************************************************************/
 
 #include <SPI.h>         // needed for Arduino versions later than 0018
@@ -16,22 +16,23 @@
 #include <PinChangeInterruptBoards.h>
 #include <PinChangeInterruptPins.h>
 #include <PinChangeInterruptSettings.h>
+#include <avr/wdt.h>
 
-#if 1
+#if 0
 #define DEVMODE
 #endif
 
 /* GAME PREFERENCES */
-
-#define hardware_ID 7    /*Unique hardware ID used for identification*/
+/*ip address 192.168.1.141-146*/
+#define hardware_ID 146    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
-#define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
+#define ACK_TIMEOUT 900   /*Time limit of acknowledge reception*/
 /*Game specific*/
 #define SENSOR1 5
 #define SENSOR2 7
-#define MAX_CYCLE 32
+#define MAX_CYCLE 32 // ez a tömb hossza
 
-#define VIDEO_PIN1 0
+#define VIDEO_PIN1 0 //ezt a video pint kellene használni
 #define VIDEO_PIN2 A2
 
 #define rightLED 3
@@ -48,8 +49,8 @@ volatile uint8_t status = 0;
 /*game specific*/
 volatile int tick = 0;
 volatile int timer = 0;
-static int data[MAX_CYCLE] = {0, 1,1,0, 0, 2, 0, 0, 1, 0, 2, 0, 0, 2, 1, 0, 2, 0, 0, 0, 1, 0, 2, 0, 0, 1, 0, 0, 2, 0, 2, 0};
-static int results[MAX_CYCLE-1];
+static int data[MAX_CYCLE] = {0, 1, 1, 0, 0, 2, 0, 0, 1, 0, 2, 0, 0, 2, 1, 0, 2, 0, 0, 0, 1, 0, 2, 0, 0, 1, 0, 0, 2, 0, 2, 0}; //ide kellene betölteni a 120-as tömböt
+static int results[MAX_CYCLE - 1];
 int result;
 
 
@@ -58,17 +59,17 @@ int result;
 int error = 0;
 #endif
 
-String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
-String ready2 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
+String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}}";
+String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}}";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 
-  typedef enum message_type {
-    START = 1,
-    RESULT = 2,
-    READY = 3,
-    ACK = 4
-  };
+typedef enum message_type {
+  START = 1,
+  RESULT = 2,
+  READY = 3,
+  ACK = 4
+};
 
 
 //booleans for controlling the game
@@ -84,40 +85,39 @@ bool isRightAction = false;
 bool timerAction = false;
 
 byte mac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, hardware_ID};
-IPAddress serverIP(192, 168, 1, 104); // server IP address
+IPAddress serverIP(192, 168, 1, 100); // server IP address
 IPAddress ownIP(192, 168, 1, hardware_ID);
 unsigned int serverPort = 50505;   //server remote port to connect to
 EthernetClient client;
 //interrupt functions
 
-void systemTick(){
+void systemTick() {
   timerAction = true;
 }
 
-int selectVideo() {
-  int num = random(2);
-  if (num == 1) {
-    digitalWrite(VIDEO_PIN1, HIGH);
-    delay(20);
-    digitalWrite(VIDEO_PIN1, LOW);
-    return 1;
-  } else {
-    digitalWrite(VIDEO_PIN2, HIGH);
-    delay(20);
-    digitalWrite(VIDEO_PIN2, LOW);
-    return 0;
-  }
+void reset() {
+  wdt_enable(WDTO_15MS);
+  while (1);
+}
+
+void selectVideo() {
+
+  digitalWrite(VIDEO_PIN1, HIGH);
+  delay(100);
+  digitalWrite(VIDEO_PIN1, LOW);
+
+
 }
 
 void timeout() {
   timeoutFlag = true;
 }
 
-void rightAction(){
+void rightAction() {
   isRightAction = true;
 }
 
-void leftAction(){
+void leftAction() {
   isLeftAction = true;
 }
 
@@ -126,9 +126,9 @@ void leftAction(){
 int receiveServerMessage();
 
 void ConnectServer();
-
+void ConnectServerDefault();
 void clearData();
-uint8_t  sendMessageWithTimeout(String message, String reconnect_text);
+uint8_t  sendMessageWithTimeout(String message);
 
 
 void initEthernet();
@@ -141,8 +141,8 @@ void setup() {
 #endif
 
 
-  pinMode(SENSOR1,INPUT_PULLUP);
-  pinMode(SENSOR2,INPUT_PULLUP);
+  pinMode(SENSOR1, INPUT_PULLUP);
+  pinMode(SENSOR2, INPUT_PULLUP);
 
   pinMode(rightLED, OUTPUT);
   pinMode(leftLED, OUTPUT);
@@ -153,10 +153,16 @@ void setup() {
   attachPCINT(digitalPinToPCINT(SENSOR1), rightAction, FALLING);
   attachPCINT(digitalPinToPCINT(SENSOR2), leftAction, FALLING);
 
+  userID.reserve(200);
+
+  //disable SD card
+  pinMode(4, OUTPUT);
+  digitalWrite(4, HIGH);
+
   MsTimer2::set(ACK_TIMEOUT, timeout); // 500ms period
   timerInit();
   initEthernet();
-  sendMessageWithTimeout(ready,ready2);
+  sendMessageWithTimeout(ready);
 #ifdef DEVMODE
   Serial.println("Setup finished");
 #endif
@@ -172,27 +178,26 @@ void timerInit() {
 }
 
 void initEthernet() {
-  Ethernet.begin(mac,ownIP); // we use DHCP
+  Ethernet.begin(mac, ownIP); // we use DHCP
 
 
   delay(1000); // give the Ethernet shield a second to initialize
-  #if defined(DEVMODE)
+#if defined(DEVMODE)
   Serial.println("connecting...");
-  #endif
+#endif
 
   // if you get a connection, report back via serial:
   if (client.connect(serverIP, serverPort)) {
-    #if defined(DEVMODE)
+#if defined(DEVMODE)
     Serial.println("connected");
-    #endif
-    // Make a HTTP request:
-    //client.println("Hello, a nevem János");
+#endif
+
   }
   else {
     // if you didn't get a connection to the server:
-    #if defined(DEVMODE)
+#if defined(DEVMODE)
     Serial.println("connection failed");
-    #endif
+#endif
   }
 
 }
@@ -224,7 +229,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
 #endif
 
       valid_pkt_received = false;
-       return 0;
+      return 0;
     }
     else {
 #ifdef DEVMODE
@@ -252,7 +257,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       Serial.println(status);
 
 #endif
-     // memset(json, 0, 150);
+      memset(json, 0, 150);
       valid_pkt_received = true;
 
       if (userID == 0 && status == 1) {
@@ -268,18 +273,34 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   }
 
   else {
-    ConnectServer(ready);
+     if(idle_state){
+      ConnectServerDefault();
+    }else{
+      ConnectServer();
+    }
     return 0;
   }
 
 }
 
-void ConnectServer(String text){ //WARNING: BLOCKING STATEMENT
+void ConnectServer(){ //WARNING: BLOCKING STATEMENT
 
   if (!client.connected()) {
     client.stop();
     while (!client.connect(serverIP, serverPort));
-    client.println(text);
+    client.println(ready5);
+
+  }
+
+}
+
+void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
+
+  if (!client.connected()) {
+    client.stop();
+    reset();
+    while (!client.connect(serverIP, serverPort));
+    client.println(ready);
 
   }
 
@@ -296,11 +317,15 @@ void clearData() {
 
 }
 
-uint8_t sendMessageWithTimeout(String message, String reconnect_text) {
+uint8_t sendMessageWithTimeout(String message) {
   //String message = "{ \"Type\":" + (String)(3) + "\"DeviceId\":" + (String)(hardware_ID)+",\"Status\" :" + (String)(1)+"}";
   uint8_t retries = 0;
 
-  ConnectServer(reconnect_text);
+ if(idle_state){
+  ConnectServerDefault();
+}else{
+  ConnectServer();
+}
 
   MsTimer2::start();
   while (1) {
@@ -331,15 +356,26 @@ uint8_t sendMessageWithTimeout(String message, String reconnect_text) {
 #endif
 
     }
+     client.stop(); // no ack, disconnecting
+    client.connect(serverIP, serverPort); //reconnecting
 
     if (retries >= MAX_RETRIES) {
-
+      client.stop();
+      reset();
+      ///resetting, no mentionable below
+      client.println(ready); // if too many retries happened
 #ifdef DEVMODE
       Serial.println("Max tries reached");
 #endif
 
       break;
 
+      }else{
+         if(idle_state){
+      client.println(ready); // sending ready with status 5
+      }else{
+       client.println(ready5); 
+      }
       }
 
     }
@@ -347,14 +383,14 @@ uint8_t sendMessageWithTimeout(String message, String reconnect_text) {
   }
 
 uint8_t sendMessage(String message) {
-  ConnectServer(ready);
+  ConnectServer();
   client.println(message);
   return client.connected();
 
 }
 
 static int calculateResult(int data[], int results[]) {
-  for (int i=0;i<MAX_CYCLE;i++) {
+  for (int i = 0; i < MAX_CYCLE; i++) {
     switch (data[i]) {
       case 1:
         checkResult(1, i);
@@ -370,7 +406,7 @@ static int calculateResult(int data[], int results[]) {
 }
 
 void checkResult(int leg, int index) {
-  if (results[index-1] == leg || results[index] == leg || results[index+1] == leg) {
+  if (results[index - 1] == leg || results[index] == leg || results[index + 1] == leg) {
     result++;
   }
 }
@@ -390,6 +426,7 @@ void loop() {
 
     game_started = false;
     int status = 0;
+    ConnectServerDefault();
     status = receiveServerMessage(); // waiting for real messages
 #ifdef DEVMODE
     //status = START;
@@ -398,35 +435,36 @@ void loop() {
     if (valid_pkt_received) {
 
       switch (status) {
-      case READY:
-        clearData();
-        break;
-      case RESULT:
-        clearData();
-        break; //skip packet
-      case START:
+        case READY:
+          clearData();
+          break;
+        case RESULT:
+          clearData();
+          break; //skip packet
+        case START:
 #ifdef DEVMODE
-        Serial.println("Game started");
+          Serial.println("Game started");
 #endif
 
-        sendMessage(ack); //simple ack message, no answer
-        Timer1.start();
-        idle_state = false;
-        valid_pkt_received = false;
-        game_started = true;
-        isRightAction = false;
-        isLeftAction = false;
+          sendMessage(ack); //simple ack message, no answer
+          Timer1.start();
+          idle_state = false;
+          valid_pkt_received = false;
+          game_started = true;
+          isRightAction = false;
+          isLeftAction = false;
 
-      //  int selectedVideo = selectVideo();
+           selectVideo();
+           //itt kellene egy olyan késleltetés, hogy akkor induljon a video, amikor a játék
 
-        #ifdef DEVMODE
-      //    Serial.println(selectedVideo);
-        #endif
+#ifdef DEVMODE
+          //    Serial.println(selectedVideo);
+#endif
 
-        break;
-        
-      default:
-        break;
+          break;
+
+        default:
+          break;
 
 
       }
@@ -444,19 +482,19 @@ void loop() {
     //Serial.println("Game is running "+ (String)(game_over)+ " idle "+ (String)(idle_state));
 #endif
 
- if(timerAction){
-    tick++;
-      if(isRightAction ^ isLeftAction){
+    if (timerAction) {
+      tick++;
+      if (isRightAction ^ isLeftAction) {
         Serial.println("INT");
-        if(isLeftAction){
+        if (isLeftAction) {
           results[tick] = 1;
           isLeftAction = false;
           digitalWrite(leftLED, HIGH);
           digitalWrite(rightLED, LOW);
         }
-        if(isRightAction){
+        if (isRightAction) {
           results[tick] = 2;
-           isRightAction = false;
+          isRightAction = false;
           digitalWrite(rightLED, HIGH);
           digitalWrite(leftLED, LOW);
         }
@@ -470,12 +508,12 @@ void loop() {
 
       timerAction = false;
 
-    #ifdef DEVMODE
-    Serial.println(tick);
-    #endif
+#ifdef DEVMODE
+      Serial.println(tick);
+#endif
     }
 
-    if(tick == (MAX_CYCLE-1)){
+    if (tick == (MAX_CYCLE - 1)) {
       Serial.println("Max reached");
       game_over = true;
       game_started = false;
@@ -490,24 +528,24 @@ void loop() {
   if (game_over) {
     //handle game over here
     Timer1.stop();
-    result1 = calculateResult(data,results);
+    result1 = calculateResult(data, results);
 #ifdef DEVMODE
-         Serial.print("Data: ");
-      for(int i = 0;i<MAX_CYCLE;i++){
-        Serial.print(data[i],DEC);
-        Serial.print(" ");
-      }
-      Serial.println("");
-      Serial.print("Res : ");
-     for(int i = 0;i<MAX_CYCLE;i++){
-        Serial.print(results[i],DEC);
-        Serial.print(" ");
-     }
+    Serial.print("Data: ");
+    for (int i = 0; i < MAX_CYCLE; i++) {
+      Serial.print(data[i], DEC);
+      Serial.print(" ");
+    }
+    Serial.println("");
+    Serial.print("Res : ");
+    for (int i = 0; i < MAX_CYCLE; i++) {
+      Serial.print(results[i], DEC);
+      Serial.print(" ");
+    }
 #endif
 
     //end of game over handling
-    String result = "{\"Type\":2,\"UserId\" :\"" + (String)(userID)+"\",\"Result1\":" + (String)(result1)+"}";
-    sendMessageWithTimeout(result,ready2);
+    String result = "{\"Type\":2,\"UserId\" :\"" + (String)(userID) + "\",\"Result1\":" + (String)(result1) + "}";
+     sendMessageWithTimeout(result);
     game_over = false;
     idle_state = true;
     clearData();
