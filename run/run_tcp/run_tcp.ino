@@ -24,7 +24,7 @@
 
 /* GAME PREFERENCES */
 /*ip address: 192.168.1.171*/
-#define hardware_ID 175    /*Unique hardware ID used for identification*/
+#define hardware_ID 174    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 1900   /*Time limit of acknowledge reception*/
 
