@@ -34,7 +34,7 @@
 #define startPin 8
 #define finishPin 7
 #define ledfalPin 3
-#define ledfaltimeout 50
+#define ledfaltimeout 100
 
 /*Variables*/
 int timerCounter = 0;
@@ -407,9 +407,9 @@ void loop() {
 #endif
           start = millis();
           delay(max(0,timer_delay-ledfaltimeout));
-          digitalWrite(ledfalPin, HIGH);
-          delay(ledfaltimeout);
           digitalWrite(ledfalPin, LOW);
+          delay(ledfaltimeout);
+          digitalWrite(ledfalPin, HIGH);
 /*          while (1) {
             stop = millis();
             if ((stop - start) >= timer_delay) {
