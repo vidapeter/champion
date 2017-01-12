@@ -26,7 +26,7 @@
 /*ip address: 192.168.1.171*/
 #define hardware_ID 174    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
-#define ACK_TIMEOUT 1900   /*Time limit of acknowledge reception*/
+#define ACK_TIMEOUT 900   /*Time limit of acknowledge reception*/
 
 /*Pin definitions*/
 
@@ -93,6 +93,10 @@ EthernetClient client;
 //interrupt functions
 
 void timerISR() {
+#ifdef DEVMODE
+  Serial.println("timer irq");
+#endif
+
   if (game_started) {
     timerCounter++;
     if (timerCounter == 20) {
@@ -112,6 +116,9 @@ void timerISR() {
 
 
 void timeout() {
+#ifdef DEVMODE
+  Serial.println("timeout irq");
+#endif
   timeoutFlag = true;
 }
 
@@ -217,7 +224,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   char c = '%';
   unsigned long maxwait=millis()+ACK_TIMEOUT;
 #if defined(DEVMODE)
-  Serial.print("Buffer data bytes elotte: " );
+  Serial.print("rcvSrvMsg: " );
   Serial.println(client.available());
 #endif
 
@@ -227,7 +234,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
     if (c!='\n' && c!='\r' && c!=-1) {
       json[count++] = c;
     } else {
-      delay(5);
+//      delay(5);
     }
   }
   json[count] = 0; // end of string
@@ -270,7 +277,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       //if (deviceID == hardware_ID) {
       String uID = root[(String)("UserId")];
 #if defined(DEVMODE)
-      Serial.print("x1");
+//      Serial.print("x1");
 #endif
 
       userID = uID;
@@ -278,23 +285,23 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
 //      timer_delay = root["Result1"];
       timer_delay = root["Result"];
 #if defined(DEVMODE)
-      Serial.print("x2");
+//      Serial.print("x2");
 #endif
       status = root["Status"];
 #if defined(DEVMODE)
-      Serial.print("x3");
+//      Serial.print("x3");
 #endif
       // ha userid = 0 és status = 1 akkor ack, ha
       // userid != 0 akkor start game
 #if defined(DEVMODE)
-      Serial.print("UId: ");
-      Serial.println(userID);
+//      Serial.print("UId: ");
+//      Serial.println(userID);
       //      Serial.print("Type: ");
       //      Serial.println(type);
-      Serial.print("Delay: ");
-      Serial.println(timer_delay);
-      Serial.print("Status: ");
-      Serial.println(status);
+//      Serial.print("Delay: ");
+//      Serial.println(timer_delay);
+//      Serial.print("Status: ");
+//      Serial.println(status);
 #endif
       memset(json, 0, 150);
       valid_pkt_received = true;
@@ -413,21 +420,13 @@ uint8_t sendMessageWithTimeout(String message) {
 }
 
 uint8_t sendMessage(String message) {
-#ifdef DEVMODE
-      Serial.println("Sendmsg1");
-#endif
   ConnectServer();
-#ifdef DEVMODE
-//      Serial.println("Sendmsg2");
-#endif
   client.println(message);
-#ifdef DEVMODE
-//      Serial.println("Sendmsg3");
-#endif
   return client.connected();
 }
 
 void loop() {
+  
   if (idle_state) {
     game_started = false;
     int status = 0;
@@ -443,26 +442,25 @@ void loop() {
           break; //skip packet
         case START:
 #ifdef DEVMODE
-          Serial.print("Sending ACK to start");
+          Serial.print("Sending ACK as answer to Start cmd");
 #endif
 
           sendMessage(ack); //simple ack message, no answer
 #ifdef DEVMODE
-          Serial.print("Game start command received, ");
-          Serial.print("waiting for ");
+          Serial.print("Game start command received, waiting for ");
           Serial.print(timer_delay);
-          Serial.print(" milliseconds "); 
-          if (hardware_ID==175) {
-            Serial.print(ledfaloffsetms);
-            Serial.print(" because ledfal");
-          }
-          Serial.println(".");
+          Serial.println(" milliseconds "); 
+//          if (hardware_ID==175) {
+//            Serial.print(ledfaloffsetms);
+//            Serial.print(" because ledfal");
+//          }
+//          Serial.println(".");
 #endif
           start = millis();
           delay(max(0,timer_delay-ledfaltimeout+(hardware_ID==175?ledfaloffsetms:0)));
-          digitalWrite(ledfalPin, ledfalresetsignal);
+//          digitalWrite(ledfalPin, ledfalresetsignal);
           delay(ledfaltimeout);
-          digitalWrite(ledfalPin, !ledfalresetsignal);
+//          digitalWrite(ledfalPin, !ledfalresetsignal);
 /*          while (1) {
             stop = millis();
             if ((stop - start) >= timer_delay) {
@@ -476,9 +474,9 @@ void loop() {
           */
 #ifdef DEVMODE
           Serial.print("Waiting ended: ");
-          Serial.println(millis() - start);
+ //         Serial.println(millis() - start);
           Serial.println("Proceed to first sensor!");
-          Serial.println(millis());
+ //         Serial.println(millis());
 #endif
           start = 0;
           stop = 0;
@@ -509,9 +507,9 @@ void loop() {
       timerCounter=0;
 #ifdef DEVMODE
       Serial.println("Started");
-      Serial.println(start);
-      Serial.println(stop);
-      Serial.println(millis());
+//      Serial.println(start);
+//      Serial.println(stop);
+//      Serial.println(millis());
 #endif
     }
 
@@ -522,9 +520,9 @@ void loop() {
       game_started = false;
 #ifdef DEVMODE
       Serial.println("Stopped");
-      Serial.println(start);
-      Serial.println(stop);
-      Serial.println(millis());
+//      Serial.println(start);
+//      Serial.println(stop);
+//      Serial.println(millis());
 #endif
     }
     if (timerFlag) {
@@ -546,7 +544,7 @@ void loop() {
 #endif
     sendMessageWithTimeout(result);
 #ifdef DEVMODE
-      Serial.println("GameoverResultSent");
+//      Serial.println("GameoverResultSent");
 #endif
     game_over = false;
     idle_state = true;
@@ -557,7 +555,7 @@ void loop() {
     attachPCINT(digitalPinToPCINT(startPin), runStarted, FALLING);
   }
 #ifdef DEVMODE
-      Serial.println("GameoverResultSentRestart");
+//      Serial.println("GameoverResultSentRestart");
 #endif
 
   }
