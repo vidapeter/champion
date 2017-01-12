@@ -18,15 +18,15 @@
 #include "PinChangeInterruptSettings.h"
 #include <avr/wdt.h>
 
-#if 0
+#if 1
 #define DEVMODE
 #endif
 
 /* GAME PREFERENCES */
 /*ip address: 192.168.1.171*/
-#define hardware_ID 171    /*Unique hardware ID used for identification*/
+#define hardware_ID 173    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
-#define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
+#define ACK_TIMEOUT 900   /*Time limit of acknowledge reception*/
 
 /*Pin definitions*/
 
@@ -199,22 +199,25 @@ void initEthernet() {
 }
 
 int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
-  String received = "";
+//  String received = "";
   valid_pkt_received = false;
+  int count=0;
+  char c='%';
   while (client.available()) {
-    char c = client.read();
-    received += c;
+    c = client.read();
+    json[count++]=c;
 
   }
-  
+  json[count]=0; // end of string
 
-  if (received != "") {
+  if (count>0) {
     StaticJsonBuffer<150> jsonBuffer;
-    received.toCharArray(json, received.length());
+//    received.toCharArray(json, received.length());
     JsonObject& root = jsonBuffer.parseObject(json);
 
 #ifdef DEVMODE
-    Serial.println("Received:" + received);
+    Serial.print("Received:" );
+    Serial.println(json);
 #endif
 
     if (!root.success()) {
@@ -245,8 +248,8 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
 
       Serial.print("UId: ");
       Serial.println(userID);
-      Serial.print("Type: ");
-      Serial.println(type);
+//      Serial.print("Type: ");
+//      Serial.println(type);
       Serial.print("Delay: ");
       Serial.println(timer_delay);
       Serial.print("Status: ");
@@ -273,8 +276,8 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       ConnectServerDefault();
     }else{
       ConnectServer();
-    return 0;
   }
+    return 0;
   
 }
 
@@ -515,7 +518,7 @@ void loop() {
     result1 = stop - start;
 
     //end of game over handling
-    String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+"\",\"Result1\":" + (String)(result1)+"}";
+    String result = "{\"Type\":2,\"UserId\" :\"" + (String)(userID)+"\",\"Result1\":" + (String)(result1)+"}";
     sendMessageWithTimeout(result);
     game_over = false;
     idle_state = true;
