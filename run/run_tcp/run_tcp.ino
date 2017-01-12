@@ -24,7 +24,7 @@
 
 /* GAME PREFERENCES */
 /*ip address: 192.168.1.171*/
-#define hardware_ID 174    /*Unique hardware ID used for identification*/
+#define hardware_ID 175    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 900   /*Time limit of acknowledge reception*/
 
@@ -93,15 +93,11 @@ EthernetClient client;
 //interrupt functions
 
 void timerISR() {
-#ifdef DEVMODE
-  Serial.println("timer irq");
-#endif
-
   if (game_started) {
     timerCounter++;
     if (timerCounter == 20) {
 #ifdef DEVMODE
-      Serial.println("GameTimeout");
+      Serial.println("GameTimeout (from IRQ)");
 #endif
       game_over = true;
       game_started = false;
@@ -222,14 +218,15 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   valid_pkt_received = false;
   int count = 0;
   char c = '%';
-  unsigned long maxwait=millis()+ACK_TIMEOUT;
+//  unsigned long maxwait=millis()+ACK_TIMEOUT;
 #if defined(DEVMODE)
   Serial.print("rcvSrvMsg: " );
   Serial.println(client.available());
 #endif
 
 //  while (client.available()) {
-  while (c!='\n' && count<250 && maxwait>millis()) {
+ // while (c!='\n' && count<250 && maxwait>millis()) {
+  while (c!='\n' && count<250) {
     c = client.read();
     if (c!='\n' && c!='\r' && c!=-1) {
       json[count++] = c;
@@ -448,19 +445,14 @@ void loop() {
           sendMessage(ack); //simple ack message, no answer
 #ifdef DEVMODE
           Serial.print("Game start command received, waiting for ");
-          Serial.print(timer_delay);
+          Serial.print(timer_delay+(hardware_ID==175?ledfaloffsetms:0));
           Serial.println(" milliseconds "); 
-//          if (hardware_ID==175) {
-//            Serial.print(ledfaloffsetms);
-//            Serial.print(" because ledfal");
-//          }
-//          Serial.println(".");
 #endif
           start = millis();
           delay(max(0,timer_delay-ledfaltimeout+(hardware_ID==175?ledfaloffsetms:0)));
-//          digitalWrite(ledfalPin, ledfalresetsignal);
+          digitalWrite(ledfalPin, ledfalresetsignal);
           delay(ledfaltimeout);
-//          digitalWrite(ledfalPin, !ledfalresetsignal);
+          digitalWrite(ledfalPin, !ledfalresetsignal);
 /*          while (1) {
             stop = millis();
             if ((stop - start) >= timer_delay) {
