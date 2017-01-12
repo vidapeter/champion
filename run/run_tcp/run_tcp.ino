@@ -217,6 +217,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   //  String received = "";
   valid_pkt_received = false;
   int count = 0;
+  int tries=0;
   char c = '%';
 //  unsigned long maxwait=millis()+ACK_TIMEOUT;
 #if defined(DEVMODE)
@@ -226,12 +227,13 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
 
 //  while (client.available()) {
  // while (c!='\n' && count<250 && maxwait>millis()) {
-  while (c!='\n' && count<250) {
+  while (c!='\n' && count<250 && tries<3000) {
     c = client.read();
+    tries++;
     if (c!='\n' && c!='\r' && c!=-1) {
       json[count++] = c;
     } else {
-//      delay(5);
+      delay(1);
     }
   }
   json[count] = 0; // end of string
