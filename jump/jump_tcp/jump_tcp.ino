@@ -90,7 +90,7 @@ void timerISR() {
 
     timerCounter++;
     timerFlag = true;
-  if (timerCounter == 6) {
+  if (timerCounter == 6) { // 6 because of the 30 sec time period (5 secs at 6 times)
     game_over = true;
     game_started = false;
     timerCounter = 0;
