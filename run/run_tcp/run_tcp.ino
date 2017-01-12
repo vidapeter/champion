@@ -24,7 +24,7 @@
 
 /* GAME PREFERENCES */
 /*ip address: 192.168.1.171*/
-#define hardware_ID 174    /*Unique hardware ID used for identification*/
+#define hardware_ID 175    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 900   /*Time limit of acknowledge reception*/
 
@@ -35,6 +35,7 @@
 #define finishPin 7
 #define ledfalPin 3
 #define ledfaltimeout 100
+#define ledfalresetsignal LOW
 
 /*Variables*/
 int timerCounter = 0;
@@ -165,7 +166,7 @@ void setup() {
   digitalWrite(4, HIGH);
 
   pinMode(ledfalPin, OUTPUT);
-  digitalWrite(ledfalPin, HIGH);
+  digitalWrite(ledfalPin, !ledfalresetsignal);
 
   attachPCINT(digitalPinToPCINT(startPin), runStarted, FALLING);
   attachPCINT(digitalPinToPCINT(finishPin), runFinished, FALLING);
@@ -407,9 +408,9 @@ void loop() {
 #endif
           start = millis();
           delay(max(0,timer_delay-ledfaltimeout));
-          digitalWrite(ledfalPin, LOW);
+          digitalWrite(ledfalPin, ledfalresetsignal);
           delay(ledfaltimeout);
-          digitalWrite(ledfalPin, HIGH);
+          digitalWrite(ledfalPin, !ledfalresetsignal);
 /*          while (1) {
             stop = millis();
             if ((stop - start) >= timer_delay) {
