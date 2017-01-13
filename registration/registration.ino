@@ -20,11 +20,11 @@
 
 /* GAME PREFERENCES */
 /*registration 192.168.1.101-108*/
-#define hardware_ID 101    /*Unique hardware ID used for identification*/
+#define hardware_ID 107    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
-#define ACK_TIMEOUT 500   /*Time limit of acknowledge reception*/
+#define ACK_TIMEOUT 800   /*Time limit of acknowledge reception*/
 #define trigPin 6
-#define echoPin 7
+#define echoPin 7 
 /*Variables*/
 
 char json[150];
@@ -160,11 +160,13 @@ void initEthernet() {
 int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   String received = "";
   valid_pkt_received = false;
+  
   while (client.available()) {
     char c = client.read();
     received += c;
-
+  
   }
+  
   
 
   if (received != "") {
@@ -346,6 +348,7 @@ uint8_t sendMessage(String message) {
 }
 
 long  measure_height() {
+  //return 172;
   digitalWrite(trigPin, LOW);
   delayMicroseconds(5);
   digitalWrite(trigPin, HIGH);
@@ -355,7 +358,7 @@ long  duration = pulseIn(echoPin, HIGH);
   return (duration/2) / 29.1;
 }
 
-long meause_weight(){
+long measure_weight(){
   
     while (1)
     {
@@ -401,7 +404,7 @@ long meause_weight(){
 
     i = 0;
 
-    Serial.println("Sentence");
+    Serial.println("\nSentence");
     for (int x = 0; x < 30; x++) {
       //Serial.println("Data: " + (String)(data[x]) + "pos " + String(x));
 
@@ -459,8 +462,10 @@ long meause_weight(){
 
     length = 0;
     pointer = 7;
-    weight = 0;
+    //weight = 0;
 
+    
+  Serial.println("weight sent" + weight);
   return weight;
 
 }
@@ -528,19 +533,22 @@ void loop() {
       long start = millis();
        while(1){
         height = measure_height();
+        weight = measure_weight();
 
-        if(height!= 0){
+        
+        if (height > 0 && height < 250 && weight > 5 && weight < 250)
+        {
           break;  //break if not zero data
         }
 
-        if(start -millis() > 1000){
+        if(start - millis() > 2000)
+        {
           break; // break if timeout
         }
-       }
+      }
         for (int x = 0; x < 30; x++) {
          data[x] = 0;
       }
-      //measure_weight();
 
       /*After measuring*/
       game_over = true;
@@ -562,10 +570,15 @@ void loop() {
     //handle game over here
     //Timer1.stop();
     result1 = 250-height;
-    result2 = weight;
+    if (weight < 5 || weight > 250)
+    {
+       result2 = 2; // agreed error code
+    } else {
+       result2 = weight;
+    }
 
     //end of game over handling
-    String result = "{\"Type\":2,\"UserId\" :" + (String)(userID)+",\"Result1\":" + (String)(result1)+",\"Result2\":" + (String)(result2)+"}";
+    String result = "{\"Type\":2,\"UserId\" : \"" + (String)(userID)+"\",\"Result1\":" + (String)(result1)+",\"Result2\":" + (String)(result2)+"}";
     sendMessageWithTimeout(result);
     game_over = false;
     idle_state = true;
