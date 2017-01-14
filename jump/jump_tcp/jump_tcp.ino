@@ -212,6 +212,121 @@ void initEthernet() {
 
 }
 
+
+int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
+  //  String received = "";
+  valid_pkt_received = false;
+  int count = 0;
+  int tries = 0;
+  char c = '%';
+  //  unsigned long maxwait=millis()+ACK_TIMEOUT;
+#if defined(DEVMODE)
+  Serial.print("rcvSrvMsg: " );
+  Serial.println(client.available());
+#endif
+
+  //  while (client.available()) {
+  // while (c!='\n' && count<250 && maxwait>millis()) {
+  while (c != '\n' && count < 250 && tries < 3000) {
+    c = client.read();
+    tries++;
+    if (c != '\n' && c != '\r' && c != -1) {
+      json[count++] = c;
+    } else {
+      delay(1);
+    }
+  }
+  json[count] = 0; // end of string
+#if defined(DEVMODE)
+  //  Serial.print("Buffer data bytes utana: " );
+  //  Serial.println(client.available());
+#endif
+
+#if defined(DEVMODE)
+  //Serial.print("Received data:" );
+  //Serial.println(json);
+#endif
+
+  if (count > 0) {
+#ifdef DEVMODE
+    Serial.println(count);
+    Serial.print("Received: [" );
+    Serial.print(json);
+    Serial.println("]" );
+#endif
+    StaticJsonBuffer<150> jsonBuffer;
+    //    received.toCharArray(json, received.length());
+    JsonObject& root = jsonBuffer.parseObject(json);
+
+    if (!root.success()) {
+#ifdef DEVMODE
+      Serial.println("parseObject() failed");
+      error++;
+      Serial.println("Errors: " + (String)error);
+#endif
+      valid_pkt_received = false;
+      return 0;
+    }
+    else {
+#ifdef DEVMODE
+      Serial.println("Valid pkt");
+      Serial.println("Errors: " + (String)error);
+#endif
+      //deviceID = root["DeviceId"];
+      //if (deviceID == hardware_ID) {
+      String uID = root[(String)("UserId")];
+#if defined(DEVMODE)
+      //      Serial.print("x1");
+#endif
+
+      userID = uID;
+      //type = root["Type"];
+      //      timer_delay = root["Result1"];
+      //      timer_delay = root["Result"];
+#if defined(DEVMODE)
+      //      Serial.print("x2");
+#endif
+      status = root["Status"];
+#if defined(DEVMODE)
+      //      Serial.print("x3");
+#endif
+      // ha userid = 0 és status = 1 akkor ack, ha
+      // userid != 0 akkor start game
+#if defined(DEVMODE)
+      //      Serial.print("UId: ");
+      //      Serial.println(userID);
+      //      Serial.print("Type: ");
+      //      Serial.println(type);
+      //      Serial.print("Delay: ");
+      //      Serial.println(timer_delay);
+      //      Serial.print("Status: ");
+      //      Serial.println(status);
+#endif
+      memset(json, 0, 150);
+      valid_pkt_received = true;
+
+      if (userID == 0 && status == 1) {
+        return ACK;
+      } else {
+        if (userID == 0 && status != 0) {
+          return 0;
+        } else {
+          return START;
+        }
+      }
+    }
+  }
+  else {
+    if (idle_state) {
+      ConnectServerDefault();
+    } else {
+      ConnectServer();
+    }
+    return 0;
+  }
+
+}
+/*
 int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   String received = "";
   valid_pkt_received = false;
@@ -291,7 +406,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
     return 0;
   }
 
-}
+}*/
 
 void ConnectServer() { //WARNING: BLOCKING STATEMENT
 
