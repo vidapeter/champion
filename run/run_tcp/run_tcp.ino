@@ -4,6 +4,7 @@
   @Author Daniel Husztik
   husztikd@gmail.com
 
+// Received: [{"Status":1,"Type":0}]
 
 ******************************************************************/
 
@@ -24,7 +25,7 @@
 
 /* GAME PREFERENCES */
 /*ip address: 192.168.1.171*/
-#define hardware_ID 175    /*Unique hardware ID used for identification*/
+#define hardware_ID 173    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 900   /*Time limit of acknowledge reception*/
 
@@ -472,7 +473,7 @@ void loop() {
           Serial.println("Proceed to first sensor!");
  //         Serial.println(millis());
 #endif
-          start = 0;
+          start = millis();
           stop = 0;
           Timer1.setPeriod(1000000);
           Timer1.restart();
@@ -501,7 +502,7 @@ void loop() {
       timerCounter=0;
 #ifdef DEVMODE
       Serial.println("Started");
-//      Serial.println(start);
+      Serial.println(start);
 //      Serial.println(stop);
 //      Serial.println(millis());
 #endif
@@ -514,8 +515,8 @@ void loop() {
       game_started = false;
 #ifdef DEVMODE
       Serial.println("Stopped");
-//      Serial.println(start);
-//      Serial.println(stop);
+      Serial.println(start);
+      Serial.println(stop);
 //      Serial.println(millis());
 #endif
     }
@@ -532,8 +533,9 @@ void loop() {
 
     String result = "{\"Type\":2,\"UserId\" :\"" + (String)(userID)+"\",\"Result1\":" + (String)(result1)+"}";
 #ifdef DEVMODE
-      Serial.println("GameoverResult");
-      Serial.println("Time: "+(String)(result1)+" msec");
+      Serial.println("GameoverResult\nTime");
+      Serial.print(result1);
+      Serial.println(" msec\n");
       Serial.println(result);
 #endif
     sendMessageWithTimeout(result);
@@ -551,7 +553,7 @@ void loop() {
 #ifdef DEVMODE
 //      Serial.println("GameoverResultSentRestart");
 #endif
-
+    reset();
   }
 }
 
