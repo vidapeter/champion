@@ -39,6 +39,9 @@
 #define rightLED 3
 #define leftLED 2
 
+/*HW reset megoldás*/
+#define resetPin 12 /*ez az ami a resetre kell kötni*/
+
 /*Variables*/
 
 char json[150];
@@ -98,8 +101,12 @@ void systemTick() {
 }
 
 void reset() {
-  wdt_enable(WDTO_15MS);
-  while (1);
+  //HW reset:
+  digitalWrite(resetPin, 0);
+
+  //SW reset:
+  //wdt_enable(WDTO_15MS);
+  //while (1);
 }
 
 void selectVideo() {
@@ -146,10 +153,13 @@ void timerInit();
 
 void setup() {
 
+  //resethez
+  digitalWrite(resetPin, 1);
+  pinMode(resetPin, OUTPUT);
+
 #if defined(DEVMODE)
   Serial.begin(9600);
 #endif
-
 
   pinMode(SENSOR1, INPUT_PULLUP);
   pinMode(SENSOR2, INPUT_PULLUP);
@@ -325,94 +335,6 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   }
 
 }
-
-/*
-  int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
-  String received = "";
-  valid_pkt_received = false;
-
-  while (client.available()) {
-    char c = client.read();
-    received += c;
-
-    Serial.println((String) c);
-
-  }
-
-  Serial.println("received: " + received + received.length());
-
-  if (received != "") {
-    StaticJsonBuffer<150> jsonBuffer;
-    received.toCharArray(json, received.length());
-    JsonObject& root = jsonBuffer.parseObject(json);
-
-  #ifdef DEVMODE
-    Serial.println("Received:" + received);
-  #endif
-
-    if (!root.success()) {
-  #ifdef DEVMODE
-      Serial.println((String)json);
-      Serial.println("parseObject() failed");
-      error++;
-      Serial.println("Errors: " + (String)error);
-  #endif
-
-      valid_pkt_received = false;
-      return 0;
-    }
-    else {
-  #ifdef DEVMODE
-      Serial.println("Valid pkt");
-      Serial.println("Errors: " + (String)error);
-  #endif
-      //deviceID = root["DeviceId"];
-      //if (deviceID == hardware_ID) {
-      String uID = root[(String)("UserId")];
-      userID = uID;
-      //type = root["Type"];
-      result1 = root["Result1"];
-      status = root["Status"];
-      // ha userid = 0 és status = 1 akkor ack, ha
-      // userid != 0 akkor start game
-  #if defined(DEVMODE)
-
-      Serial.print("UId: ");
-      Serial.println(userID);
-      Serial.print("Type: ");
-      Serial.println(type);
-      Serial.print("Result: ");
-      Serial.println(result1);
-      Serial.print("Status: ");
-      Serial.println(status);
-
-  #endif
-      memset(json, 0, 150);
-      valid_pkt_received = true;
-
-      if (userID == 0 && status == 1) {
-        return ACK;
-      }
-      else if (userID == 0 && status != 0)
-        return 0;
-      else
-        return START;
-
-
-    }
-  }
-
-  else {
-    if (idle_state) {
-      ConnectServerDefault();
-    } else {
-      ConnectServer();
-    }
-    return 0;
-  }
-
-  }
-*/
 
 void ConnectServer() { //WARNING: BLOCKING STATEMENT
 
