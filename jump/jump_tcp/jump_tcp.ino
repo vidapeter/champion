@@ -562,6 +562,9 @@ void loop() {
     start = 0;
     stop = 0;
 
+    //két játék között reset, hogy tiszta lappal induljunk
+    reset();
+
     //attachPCINT(digitalPinToPCINT(SENSOR1), rightButtonPushed, FALLING);
     //attachPCINT(digitalPinToPCINT(SENSOR2), leftButtonPushed, FALLING);
 
