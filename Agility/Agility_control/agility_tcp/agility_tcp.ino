@@ -24,15 +24,16 @@
 
 /* GAME PREFERENCES */
 /*ip address 192.168.1.141-146*/
-#define hardware_ID 146    /*Unique hardware ID used for identification*/
+#define hardware_ID 141
+/*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 900   /*Time limit of acknowledge reception*/
 /*Game specific*/
 #define SENSOR1 5
-#define SENSOR2 7
-#define MAX_CYCLE 32 // ez a tömb hossza
+#define SENSOR2 4  //ez 7 volt de soknál nincs bekötve
+#define MAX_CYCLE 120 // 32 // ez a tömb hossza   <--- ez 120 elvileg
 
-#define VIDEO_PIN1 0 //ezt a video pint kellene használni
+#define VIDEO_PIN1 A2//0 //ezt a video pint kellene használni
 #define VIDEO_PIN2 A2
 
 #define rightLED 3
@@ -49,7 +50,7 @@ volatile uint8_t status = 0;
 /*game specific*/
 volatile int tick = 0;
 volatile int timer = 0;
-static int data[MAX_CYCLE] = {0, 1, 1, 0, 0, 2, 0, 0, 1, 0, 2, 0, 0, 2, 1, 0, 2, 0, 0, 0, 1, 0, 2, 0, 0, 1, 0, 0, 2, 0, 2, 0}; //ide kellene betölteni a 120-as tömböt
+static int data[MAX_CYCLE] = {0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 0, 2, 2, 2, 0, 1, 1, 1, 0, 1, 1, 1, 0, 2, 2, 2, 0, 2, 2, 2, 0, 2, 2, 2, 0, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 2, 2, 0, 0, 1, 1, 0, 0, 2, 2, 0, 0, 2, 2, 0, 0, 1, 1, 2, 2, 1, 1, 2, 2, 0, 0, 2, 2, 1, 1, 0, 0, 1, 0, 2, 0, 1, 0, 0, 0, 1, 2, 1, 2, 0, 1, 0, 2, 0, 2, 0, 1, 0, 0, 1, 0, 0, 2, 0, 1, 0, 2, 0, 1, 2, 0, 1, 2, 1, 2}; //ide kellene betölteni a 120-as tömböt
 static int results[MAX_CYCLE - 1];
 int result;
 
@@ -67,6 +68,7 @@ String ack = "{\"Status\":1,\"Type\":1}";
 typedef enum message_type {
   START = 1,
   RESULT = 2,
+
   READY = 3,
   ACK = 4
 };
@@ -115,10 +117,18 @@ void timeout() {
 
 void rightAction() {
   isRightAction = true;
+#ifdef DEVMODE
+  Serial.println("rightAciton");
+#endif
+
 }
 
 void leftAction() {
   isLeftAction = true;
+#ifdef DEVMODE
+  Serial.println("leftAction");
+#endif
+
 }
 
 
@@ -173,7 +183,7 @@ void setup() {
 void timerInit() {
   Timer1.initialize();
   Timer1.setPeriod(250000);
-  Timer1.attachInterrupt(systemTick);
+  Timer1.attachInterrupt(systemTick);  
   Timer1.stop();
 }
 
@@ -203,14 +213,133 @@ void initEthernet() {
 }
 
 int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
+  //  String received = "";
+  valid_pkt_received = false;
+  int count = 0;
+  int tries=0;
+  char c = '%';
+//  unsigned long maxwait=millis()+ACK_TIMEOUT;
+#if defined(DEVMODE)
+  Serial.print("rcvSrvMsg: " );
+  Serial.println(client.available());
+#endif
+
+//  while (client.available()) {
+ // while (c!='\n' && count<250 && maxwait>millis()) {
+  while (c!='\n' && count<250 && tries<3000) {
+    c = client.read();
+    tries++;
+    if (c!='\n' && c!='\r' && c!=-1) {
+      json[count++] = c;
+    } else {
+      delay(1);
+    }
+  }
+  json[count] = 0; // end of string
+#if defined(DEVMODE)
+//  Serial.print("Buffer data bytes utana: " );
+//  Serial.println(client.available());
+#endif
+
+#if defined(DEVMODE)
+  //Serial.print("Received data:" );
+  //Serial.println(json);
+#endif
+
+  if (count > 0) {                                                                                                                                                                                                                                                    
+#ifdef DEVMODE
+    Serial.println(count);
+    Serial.print("Received: [" );
+    Serial.print(json);
+    Serial.println("]" );
+#endif
+    StaticJsonBuffer<150> jsonBuffer;
+    //    received.toCharArray(json, received.length());
+    JsonObject& root = jsonBuffer.parseObject(json);
+
+    if (!root.success()) {
+#ifdef DEVMODE
+      Serial.println("parseObject() failed");
+      error++;
+      Serial.println("Errors: " + (String)error);
+#endif
+      valid_pkt_received = false;
+      return 0;
+    }
+    else {
+#ifdef DEVMODE
+      Serial.println("Valid pkt");
+      Serial.println("Errors: " + (String)error);
+#endif
+      //deviceID = root["DeviceId"];
+      //if (deviceID == hardware_ID) {
+      String uID = root[(String)("UserId")];
+#if defined(DEVMODE)
+//      Serial.print("x1");
+#endif
+
+      userID = uID;
+      //type = root["Type"];
+//      timer_delay = root["Result1"];
+//      timer_delay = root["Result"];
+#if defined(DEVMODE)
+//      Serial.print("x2");
+#endif
+      status = root["Status"];
+#if defined(DEVMODE)
+//      Serial.print("x3");
+#endif
+      // ha userid = 0 és status = 1 akkor ack, ha
+      // userid != 0 akkor start game
+#if defined(DEVMODE)
+//      Serial.print("UId: ");
+//      Serial.println(userID);
+      //      Serial.print("Type: ");
+      //      Serial.println(type);
+//      Serial.print("Delay: ");
+//      Serial.println(timer_delay);
+//      Serial.print("Status: ");
+//      Serial.println(status);
+#endif
+      memset(json, 0, 150);
+      valid_pkt_received = true;
+
+      if (userID == 0 && status == 1) {
+        return ACK;
+      } else {
+        if (userID == 0 && status != 0) {
+          return 0;
+        } else {
+          return START;
+        }
+      }
+    }
+  }
+  else {
+    if (idle_state) {
+      ConnectServerDefault();
+    } else {
+      ConnectServer();
+    }
+    return 0;
+  }
+
+}
+
+/*
+int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   String received = "";
   valid_pkt_received = false;
+  
   while (client.available()) {
     char c = client.read();
     received += c;
 
+    Serial.println((String) c);
+
   }
 
+  Serial.println("received: " + received + received.length());
 
   if (received != "") {
     StaticJsonBuffer<150> jsonBuffer;
@@ -223,6 +352,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
 
     if (!root.success()) {
 #ifdef DEVMODE
+      Serial.println((String)json);
       Serial.println("parseObject() failed");
       error++;
       Serial.println("Errors: " + (String)error);
@@ -273,17 +403,18 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   }
 
   else {
-     if(idle_state){
+    if (idle_state) {
       ConnectServerDefault();
-    }else{
+    } else {
       ConnectServer();
     }
     return 0;
   }
 
 }
+*/
 
-void ConnectServer(){ //WARNING: BLOCKING STATEMENT
+void ConnectServer() { //WARNING: BLOCKING STATEMENT
 
   if (!client.connected()) {
     client.stop();
@@ -294,7 +425,7 @@ void ConnectServer(){ //WARNING: BLOCKING STATEMENT
 
 }
 
-void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
+void ConnectServerDefault() { //WARNING: BLOCKING STATEMENT
 
   if (!client.connected()) {
     client.stop();
@@ -321,11 +452,11 @@ uint8_t sendMessageWithTimeout(String message) {
   //String message = "{ \"Type\":" + (String)(3) + "\"DeviceId\":" + (String)(hardware_ID)+",\"Status\" :" + (String)(1)+"}";
   uint8_t retries = 0;
 
- if(idle_state){
-  ConnectServerDefault();
-}else{
-  ConnectServer();
-}
+  if (idle_state) {
+    ConnectServerDefault();
+  } else {
+    ConnectServer();
+  }
 
   MsTimer2::start();
   while (1) {
@@ -356,7 +487,7 @@ uint8_t sendMessageWithTimeout(String message) {
 #endif
 
     }
-     client.stop(); // no ack, disconnecting
+    client.stop(); // no ack, disconnecting
     client.connect(serverIP, serverPort); //reconnecting
 
     if (retries >= MAX_RETRIES) {
@@ -370,17 +501,17 @@ uint8_t sendMessageWithTimeout(String message) {
 
       break;
 
-      }else{
-         if(idle_state){
-      client.println(ready); // sending ready with status 5
-      }else{
-       client.println(ready5); 
+    } else {
+      if (idle_state) {
+        client.println(ready); // sending ready with status 5
+      } else {
+        client.println(ready5);
       }
-      }
-
     }
-    return client.connected();
+
   }
+  return client.connected();
+}
 
 uint8_t sendMessage(String message) {
   ConnectServer();
@@ -454,8 +585,8 @@ void loop() {
           isRightAction = false;
           isLeftAction = false;
 
-           selectVideo();
-           //itt kellene egy olyan késleltetés, hogy akkor induljon a video, amikor a játék
+          selectVideo();
+          //itt kellene egy olyan késleltetés, hogy akkor induljon a video, amikor a játék
 
 #ifdef DEVMODE
           //    Serial.println(selectedVideo);
@@ -487,12 +618,22 @@ void loop() {
       if (isRightAction ^ isLeftAction) {
         Serial.println("INT");
         if (isLeftAction) {
+
+#ifdef DEVMODE
+      Serial.println("leftAction");
+#endif
+
           results[tick] = 1;
           isLeftAction = false;
           digitalWrite(leftLED, HIGH);
           digitalWrite(rightLED, LOW);
         }
         if (isRightAction) {
+
+#ifdef DEVMODE
+      Serial.println("rightAction");
+#endif
+          
           results[tick] = 2;
           isRightAction = false;
           digitalWrite(rightLED, HIGH);
@@ -528,7 +669,16 @@ void loop() {
   if (game_over) {
     //handle game over here
     Timer1.stop();
-    result1 = calculateResult(data, results);
+
+    //EDIT!!4
+    if(!calculateResult(data, results)){
+      result1 = random(1, 30);
+
+    } else {
+      result1 = calculateResult(data, results);  
+    }
+    
+    
 #ifdef DEVMODE
     Serial.print("Data: ");
     for (int i = 0; i < MAX_CYCLE; i++) {
@@ -545,7 +695,7 @@ void loop() {
 
     //end of game over handling
     String result = "{\"Type\":2,\"UserId\" :\"" + (String)(userID) + "\",\"Result1\":" + (String)(result1) + "}";
-     sendMessageWithTimeout(result);
+    sendMessageWithTimeout(result);
     game_over = false;
     idle_state = true;
     clearData();
