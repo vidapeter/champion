@@ -183,7 +183,7 @@ void setup() {
 void timerInit() {
   Timer1.initialize();
   Timer1.setPeriod(250000);
-  Timer1.attachInterrupt(systemTick);  
+  Timer1.attachInterrupt(systemTick);
   Timer1.stop();
 }
 
@@ -216,20 +216,20 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   //  String received = "";
   valid_pkt_received = false;
   int count = 0;
-  int tries=0;
+  int tries = 0;
   char c = '%';
-//  unsigned long maxwait=millis()+ACK_TIMEOUT;
+  //  unsigned long maxwait=millis()+ACK_TIMEOUT;
 #if defined(DEVMODE)
   Serial.print("rcvSrvMsg: " );
   Serial.println(client.available());
 #endif
 
-//  while (client.available()) {
- // while (c!='\n' && count<250 && maxwait>millis()) {
-  while (c!='\n' && count<250 && tries<3000) {
+  //  while (client.available()) {
+  // while (c!='\n' && count<250 && maxwait>millis()) {
+  while (c != '\n' && count < 250 && tries < 3000) {
     c = client.read();
     tries++;
-    if (c!='\n' && c!='\r' && c!=-1) {
+    if (c != '\n' && c != '\r' && c != -1) {
       json[count++] = c;
     } else {
       delay(1);
@@ -237,8 +237,8 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   }
   json[count] = 0; // end of string
 #if defined(DEVMODE)
-//  Serial.print("Buffer data bytes utana: " );
-//  Serial.println(client.available());
+  //  Serial.print("Buffer data bytes utana: " );
+  //  Serial.println(client.available());
 #endif
 
 #if defined(DEVMODE)
@@ -246,7 +246,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   //Serial.println(json);
 #endif
 
-  if (count > 0) {                                                                                                                                                                                                                                                    
+  if (count > 0) {
 #ifdef DEVMODE
     Serial.println(count);
     Serial.print("Received: [" );
@@ -275,31 +275,31 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       //if (deviceID == hardware_ID) {
       String uID = root[(String)("UserId")];
 #if defined(DEVMODE)
-//      Serial.print("x1");
+      //      Serial.print("x1");
 #endif
 
       userID = uID;
       //type = root["Type"];
-//      timer_delay = root["Result1"];
-//      timer_delay = root["Result"];
+      //      timer_delay = root["Result1"];
+      //      timer_delay = root["Result"];
 #if defined(DEVMODE)
-//      Serial.print("x2");
+      //      Serial.print("x2");
 #endif
       status = root["Status"];
 #if defined(DEVMODE)
-//      Serial.print("x3");
+      //      Serial.print("x3");
 #endif
       // ha userid = 0 és status = 1 akkor ack, ha
       // userid != 0 akkor start game
 #if defined(DEVMODE)
-//      Serial.print("UId: ");
-//      Serial.println(userID);
+      //      Serial.print("UId: ");
+      //      Serial.println(userID);
       //      Serial.print("Type: ");
       //      Serial.println(type);
-//      Serial.print("Delay: ");
-//      Serial.println(timer_delay);
-//      Serial.print("Status: ");
-//      Serial.println(status);
+      //      Serial.print("Delay: ");
+      //      Serial.println(timer_delay);
+      //      Serial.print("Status: ");
+      //      Serial.println(status);
 #endif
       memset(json, 0, 150);
       valid_pkt_received = true;
@@ -327,10 +327,10 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
 }
 
 /*
-int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
+  int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   String received = "";
   valid_pkt_received = false;
-  
+
   while (client.available()) {
     char c = client.read();
     received += c;
@@ -346,26 +346,26 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
     received.toCharArray(json, received.length());
     JsonObject& root = jsonBuffer.parseObject(json);
 
-#ifdef DEVMODE
+  #ifdef DEVMODE
     Serial.println("Received:" + received);
-#endif
+  #endif
 
     if (!root.success()) {
-#ifdef DEVMODE
+  #ifdef DEVMODE
       Serial.println((String)json);
       Serial.println("parseObject() failed");
       error++;
       Serial.println("Errors: " + (String)error);
-#endif
+  #endif
 
       valid_pkt_received = false;
       return 0;
     }
     else {
-#ifdef DEVMODE
+  #ifdef DEVMODE
       Serial.println("Valid pkt");
       Serial.println("Errors: " + (String)error);
-#endif
+  #endif
       //deviceID = root["DeviceId"];
       //if (deviceID == hardware_ID) {
       String uID = root[(String)("UserId")];
@@ -375,7 +375,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       status = root["Status"];
       // ha userid = 0 és status = 1 akkor ack, ha
       // userid != 0 akkor start game
-#if defined(DEVMODE)
+  #if defined(DEVMODE)
 
       Serial.print("UId: ");
       Serial.println(userID);
@@ -386,7 +386,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
       Serial.print("Status: ");
       Serial.println(status);
 
-#endif
+  #endif
       memset(json, 0, 150);
       valid_pkt_received = true;
 
@@ -411,7 +411,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
     return 0;
   }
 
-}
+  }
 */
 
 void ConnectServer() { //WARNING: BLOCKING STATEMENT
@@ -620,7 +620,7 @@ void loop() {
         if (isLeftAction) {
 
 #ifdef DEVMODE
-      Serial.println("leftAction");
+          Serial.println("leftAction");
 #endif
 
           results[tick] = 1;
@@ -631,9 +631,9 @@ void loop() {
         if (isRightAction) {
 
 #ifdef DEVMODE
-      Serial.println("rightAction");
+          Serial.println("rightAction");
 #endif
-          
+
           results[tick] = 2;
           isRightAction = false;
           digitalWrite(rightLED, HIGH);
@@ -671,14 +671,14 @@ void loop() {
     Timer1.stop();
 
     //EDIT!!4
-    if(!calculateResult(data, results)){
+    if (!calculateResult(data, results)) {
       result1 = random(1, 30);
 
     } else {
-      result1 = calculateResult(data, results);  
+      result1 = calculateResult(data, results);
     }
-    
-    
+
+
 #ifdef DEVMODE
     Serial.print("Data: ");
     for (int i = 0; i < MAX_CYCLE; i++) {
