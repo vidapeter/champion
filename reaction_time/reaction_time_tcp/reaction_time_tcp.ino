@@ -138,7 +138,11 @@ void timerHandler() {
 
 void reset(const char* message) {
   DEBUGLN(message);
-  
+
+  if (client.connected()) {
+    client.stop();
+  }
+    
   //HW reset:
   digitalWrite(resetPin, 0);
 

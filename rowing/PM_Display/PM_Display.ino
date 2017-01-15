@@ -110,7 +110,7 @@ void timeout() {
 void reset(const char* message) {
   DEBUGLN(message);
 
-  if (!client.connected()) {
+  if (client.connected()) {
     client.stop();
   }
   

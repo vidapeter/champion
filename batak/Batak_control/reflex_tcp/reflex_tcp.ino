@@ -139,6 +139,10 @@ void btn_pushed(){
 void reset(const char* message) {
 
   DEBUGLN(message);
+
+  if (client.connected()) {
+    client.stop();
+  }
   
   //HW reset:
   digitalWrite(resetPin, 0);
@@ -166,6 +170,8 @@ void setup() {
   //resethez
   digitalWrite(resetPin, 1);
   pinMode(resetPin, OUTPUT);
+
+  wdt_disable(); // disable watchdog timer
 
 #if defined(DEVMODE)
   Serial.begin(9600);
