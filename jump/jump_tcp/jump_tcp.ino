@@ -158,6 +158,8 @@ void setup() {
   //resethez
   digitalWrite(resetPin, 1);
   pinMode(resetPin, OUTPUT);
+
+  wdt_disable(); // disable watchdog timer
   
 #if defined(DEVMODE)
   Serial.begin(9600);
@@ -227,7 +229,7 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
 
   //  while (client.available()) {
   // while (c!='\n' && count<250 && maxwait>millis()) {
-  while (c != '\n' && count < 250 && tries < 3000) {
+  while (c != '\n' && count < 250 && tries < 8000) {
     c = client.read();
     tries++;
     if (c != '\n' && c != '\r' && c != -1) {
