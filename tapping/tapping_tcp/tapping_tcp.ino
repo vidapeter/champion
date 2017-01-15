@@ -47,7 +47,7 @@
 
 
 /*HW reset megoldás*/
-#define resetPin A2 /*ez az ami a resetre kell kötni*/
+#define resetPin A5 /*ez az ami a resetre kell kötni*/
 
 /*Variables*/
 
@@ -70,8 +70,8 @@ uint8_t lastTouched;
 int error = 0;
 #endif
 
-String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701150148 }";
-String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701150148 }";
+String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152318 }";
+String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152318 }";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 
@@ -142,11 +142,15 @@ void timerInit();
 
 void setup() {
 
+  
+  //resethez
+  digitalWrite(resetPin, 1);
+  pinMode(resetPin, OUTPUT);
+
 #ifdef DEVMODE
   Serial.begin(9600);
 #endif
 //device setup
-//Serial.println("Hello"); //ez miért volt ifdef devmode-on kívül?
 
 
 if (!cap.begin(0x5A)) {
@@ -194,8 +198,7 @@ void initEthernet() {
 
   }
   else {
-    // if you didn't get a connection to the server:
-    DEBUGLN("connection failed");
+    reset("connection failed");
   }
 
 }

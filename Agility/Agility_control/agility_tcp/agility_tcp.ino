@@ -71,8 +71,8 @@ int result;
 int error = 0;
 #endif
 
-String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701150128 }";
-String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701150128 }";
+String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152318 }";
+String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152318 }";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 
@@ -212,14 +212,10 @@ void initEthernet() {
 
   // if you get a connection, report back via serial:
   if (client.connect(serverIP, serverPort)) {
-
     DEBUGLN("connected");
-
   }
   else {
-    // if you didn't get a connection to the server:
-
-    DEBUGLN("connection failed");
+    reset("connection failed");
   }
 
 }

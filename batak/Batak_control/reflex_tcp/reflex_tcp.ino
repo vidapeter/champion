@@ -50,7 +50,7 @@
 #define OUT 1
 
 /*HW reset megoldás*/
-#define resetPin A2 /*ez az ami a resetre kell kötni*/
+#define resetPin A5 /*ez az ami a resetre kell kötni*/
 
 /*Variables*/
 
@@ -81,8 +81,8 @@ uint8_t y;
 int error = 0;
 #endif
 
-String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152013 }";
-String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152013 }";
+String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152316 }";
+String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152316 }";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 typedef enum message_type {
@@ -219,14 +219,10 @@ void initEthernet() {
 
   // if you get a connection, report back via serial:
   if (client.connect(serverIP, serverPort)) {
-    
-    DEBUGLN("connected");
-
-    
+    DEBUGLN("connected");   
   }
   else {
-    // if you didn't get a connection to the server:
-    DEBUGLN("connection failed");
+    reset("connection failed");
   }
 
 }

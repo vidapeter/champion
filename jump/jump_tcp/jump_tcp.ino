@@ -43,7 +43,7 @@
 #define SENSOR2 7
 
 /*HW reset megoldás*/
-#define resetPin 12 /*ez az ami a resetre kell kötni*/
+#define resetPin A5 /*ez az ami a resetre kell kötni*/
 
 /*Variables*/
 
@@ -64,8 +64,8 @@ int roundCounter = 0;
 int error = 0;
 #endif
 
-String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152055 }";
-String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152055 }";
+String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152318 }";
+String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152318 }";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 
@@ -209,8 +209,7 @@ void initEthernet() {
 
   }
   else {
-    // if you didn't get a connection to the server:
-    DEBUGLN("connection failed");
+    reset("connection failed");
   }
 
 }
