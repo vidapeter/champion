@@ -48,7 +48,7 @@
 #define leftLED 2
 
 /*HW reset megoldás*/
-#define resetPin 12 /*ez az ami a resetre kell kötni*/
+#define resetPin A5 /*ez az ami a resetre kell kötni*/
 
 /*Variables*/
 
