@@ -123,12 +123,16 @@ void down() {
   down_flag = true;
 }
 
-void reset() {
-
-  //HW reset
-  digitalWrite(resetPin, 0);
+void reset(const char* message) {
+#ifdef DEVMODE
+  Serial.println(message);
+  Serial.flush();
+#endif
   
-  //SW reset
+  //HW reset:
+  digitalWrite(resetPin, 0);
+
+  //SW reset:
   //wdt_enable(WDTO_15MS);
   //while (1);
 }
@@ -423,7 +427,7 @@ void ConnectServerDefault() { //WARNING: BLOCKING STATEMENT
 
   if (!client.connected()) {
     client.stop();
-    reset();
+    reset("ConnectServerDefault");
     while (!client.connect(serverIP, serverPort));
     client.println(ready);
 
@@ -484,7 +488,7 @@ uint8_t sendMessageWithTimeout(String message) {
 
     if (retries >= MAX_RETRIES) {
       client.stop();
-      reset();
+      reset("sendMessageWithTimeout");
       ///resetting, no mentionable below
       client.println(ready); // if too many retries happened
 #ifdef DEVMODE
@@ -678,7 +682,7 @@ void loop() {
     stop = 0;
 
     //két játék között reset, hogy tiszta lappal induljunk
-    reset();
+    reset("gameOver");
 
     //attachPCINT(digitalPinToPCINT(SENSOR1), rightButtonPushed, FALLING);
     //attachPCINT(digitalPinToPCINT(SENSOR2), leftButtonPushed, FALLING);

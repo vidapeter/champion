@@ -100,7 +100,12 @@ void systemTick() {
   timerAction = true;
 }
 
-void reset() {
+void reset(const char* message) {
+#ifdef DEVMODE
+  Serial.println(message);
+  Serial.flush();
+#endif
+  
   //HW reset:
   digitalWrite(resetPin, 0);
 
@@ -351,7 +356,7 @@ void ConnectServerDefault() { //WARNING: BLOCKING STATEMENT
 
   if (!client.connected()) {
     client.stop();
-    reset();
+    reset("ConnectServerDefault");
     while (!client.connect(serverIP, serverPort));
     client.println(ready);
 
@@ -414,7 +419,7 @@ uint8_t sendMessageWithTimeout(String message) {
 
     if (retries >= MAX_RETRIES) {
       client.stop();
-      reset();
+      reset("sendMessageWithTimeout");
       ///resetting, no mentionable below
       client.println(ready); // if too many retries happened
 #ifdef DEVMODE
@@ -625,6 +630,8 @@ void loop() {
     timer = 0;
     tick = 0;
 
+    //két játék között reset, hogy tiszta lappal induljunk
+    reset("gameOver");
 
 
   }
