@@ -162,6 +162,11 @@ void ConnectServerDefault();
 
 void setup() {
 
+
+  //resethez
+  digitalWrite(resetPin, 1);
+  pinMode(resetPin, OUTPUT);
+
 #if defined(DEVMODE)
   Serial.begin(9600);
 #endif
