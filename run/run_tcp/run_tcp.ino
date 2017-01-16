@@ -19,13 +19,13 @@
 #include "PinChangeInterruptSettings.h"
 #include <avr/wdt.h>
 
-#if 0
+#if 1
 #define DEVMODE
 #endif
 
 #ifdef DEVMODE
-#define DEBUGLN(x) Serial.println(x);Serial.flush();
-#define DEBUG(x) Serial.print(x);Serial.flush();
+#define DEBUGLN(x) Serial.println(x); //Serial.flush();
+#define DEBUG(x) Serial.print(x); // Serial.flush();
 #else
 #define DEBUGLN(x) ;
 #define DEBUG(x) ;
@@ -33,7 +33,7 @@
 
 /* GAME PREFERENCES */
 /*ip address: 192.168.1.171*/
-#define hardware_ID 174    /*Unique hardware ID used for identification*/
+#define hardware_ID 171    /*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3   /*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 900   /*Time limit of acknowledge reception*/
 
@@ -71,8 +71,13 @@ volatile uint8_t status = 0;
 
 int error = 0;
 
-String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701150118 }";
-String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701150118 }";
+
+String msg_ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701150313 }";
+/*char msg_ready[80]={'a','\0'};
+#define msg_ready_part1 "{ \"Type\":3,\"Payload\":{\"DeviceId\":" 
+#define msg_ready_part2 "}, \"Ver\":201701150313 }"
+*/
+String msg_ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701150313 }";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 
@@ -102,7 +107,7 @@ IPAddress ownIP(192, 168, 1, hardware_ID);
 unsigned int serverPort = 50505;   //server remote port to connect to
 EthernetClient client;
 StaticJsonBuffer<MAXJSONDATA> jsonBuffer;
-
+  
 //interrupt functions
 
 void timerISR() {
@@ -164,8 +169,10 @@ void setup() {
     Serial.begin(9600);
 #endif
 
-
+/*  sprintf(msg_ready,"%s%d%s",msg_ready_part1,hardware_ID,msg_ready_part2);
+  DEBUG(msg_ready);*/
   //  userID.reserve(200);
+
 
   //disable SD card
   pinMode(4, OUTPUT);
@@ -186,9 +193,12 @@ void setup() {
 
   MsTimer2::set(ACK_TIMEOUT, timeout); // 500ms period
   timerInit();
+  delay((hardware_ID-170)*500);
   initEthernet();
-  sendMessageWithTimeout(ready);
-  //  DEBUGLN("Setup finished");
+//  DEBUGLN("send");
+//  DEBUGLN(msg_ready);
+  sendMessageWithTimeout(msg_ready);
+  DEBUGLN("Setup finished");
 }
 
 void timerInit() {
@@ -311,7 +321,7 @@ void ConnectServer() { //WARNING: BLOCKING STATEMENT
   if (!client.connected()) {
     client.stop();
     while (!client.connect(serverIP, serverPort));
-    client.println(ready5);
+    client.println(msg_ready5);
   }
 }
 
@@ -321,7 +331,7 @@ void ConnectServerDefault() { //WARNING: BLOCKING STATEMENT
     reset("connecterverdefault"); //   O.o
     while (!client.connect(serverIP, serverPort));
     //client.connect(serverIP, serverPort);
-    sendMessageWithTimeout(ready);
+    sendMessageWithTimeout(msg_ready);
   }
 }
 
@@ -334,13 +344,22 @@ void clearData() {
 uint8_t sendMessageWithTimeout(String message) {
   uint8_t retries = 0;
 
-  if (idle_state) {
+
+//  DEBUG("sending0: ");
+//  DEBUGLN(msg_ready);
+
+//  DEBUG("sending1: ");
+//  DEBUGLN(message);
+//  DEBUGLN(message.length());
+
+if (idle_state) {
     ConnectServerDefault();
   } else {
     ConnectServer();
   }
-  DEBUG("sending: ");
-  DEBUGLN(message);
+//  DEBUG("sending2: ");
+//  DEBUGLN(message);
+//  DEBUGLN(message.length());
 
   MsTimer2::start();
   while (1) {
@@ -376,16 +395,16 @@ uint8_t sendMessageWithTimeout(String message) {
 
       client.stop();
       reset("maxretries");
-      client.println(ready); // if too many retries happened, sending ready with status 3
+      client.println(msg_ready); // if too many retries happened, sending ready with status 3
       //      DEBUGLN("Max tries reached");
 
       break;
 
     } else {
       if (idle_state) {
-        client.println(ready); // sending ready with status 3
+        client.println(msg_ready); // sending ready with status 3
       } else {
-        client.println(ready5); // status 5 (RETRY!)
+        client.println(msg_ready5); // status 5 (RETRY!)
       }
 
     }
@@ -403,14 +422,15 @@ uint8_t sendMessage(String message) {
 // azt szeretnénk, hogy a futás pályák ne egyszerre küldjék el az eredményt
 
 void waitoffset() {
-  unsigned long targettime = max(0, game_launched + 30000 + (hardware_ID - 171) * 1000 - millis());
-  DEBUGLN("Waiting for forced async");
-  DEBUGLN(targettime);
-  DEBUGLN(game_launched);
-  DEBUGLN(game_launched + targettime);
-  DEBUGLN(millis());
-  delay(targettime);
-  DEBUGLN(millis());
+  unsigned long current=millis();
+  unsigned long targettime = (current - (current % 800)) + 800 + (hardware_ID - 171)*200;
+//  DEBUGLN("Waiting for forced async");
+//  DEBUGLN(targettime-current);
+//  DEBUGLN(game_launched);
+//  DEBUGLN(game_launched + targettime);
+//  DEBUGLN(millis());
+  delay(targettime-current);
+//  DEBUGLN(millis());
 
 }
 void loop() {
@@ -429,19 +449,19 @@ void loop() {
           clearData();
           break; //skip packet
         case START:
-          DEBUG("Sending ACK as answer to Start cmd");
+  //        DEBUG("Sending ACK as answer to Start cmd");
           sendMessage(ack); //simple ack message, no answer
-          DEBUG("Game start command received, waiting for ");
-          DEBUG(timer_delay + (hardware_ID == 175 ? ledfaloffsetms : 0));
-          DEBUGLN(" milliseconds ");
+  //        DEBUG("Game start command received, waiting for ");
+  //        DEBUG(timer_delay + (hardware_ID == 175 ? ledfaloffsetms : 0));
+  //        DEBUGLN(" milliseconds ");
           start = millis();
           delay(max(0, timer_delay - ledfaltimeout + (hardware_ID == 175 ? ledfaloffsetms : 0)));
           digitalWrite(ledfalPin, ledfalresetsignal);
           delay(ledfaltimeout);
           digitalWrite(ledfalPin, !ledfalresetsignal);
-          DEBUG("Waiting ended: ");
+  //        DEBUG("Waiting ended: ");
           //         DEBUGLN(millis() - start);
-          DEBUGLN("Proceed to first sensor!");
+  //        DEBUGLN("Proceed to first sensor!");
           //         DEBUGLN(millis());
           Timer1.setPeriod(1000000);
           Timer1.restart();
