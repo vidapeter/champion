@@ -18,15 +18,24 @@
 #include "PinChangeInterruptPins.h"
 #include "PinChangeInterruptSettings.h"
 #include <avr/wdt.h>
-/*End of additional libraries /*
+/*End of additional libraries */
 
 #if 0
 #define DEVMODE
 #endif
 
-#if 1
-#define WDT
+#ifdef DEVMODE
+#define DEBUGLN(x) Serial.println(x);Serial.flush();
+#define DEBUG(x) Serial.print(x);Serial.flush();
+#else
+#define DEBUGLN(x) ;
+#define DEBUG(x) ;
 #endif
+
+
+/*#if 1
+#define WDT
+#endif*/
 
 /* GAME PREFERENCES */
 /*Reaction time Ip addresses: 131-136 */
@@ -39,6 +48,9 @@
 #define redPin 2
 #define greenPin 3
 #define buttonPin 1
+
+/*HW reset megoldás*/
+#define resetPin A5 /*ez az ami a resetre kell kötni*/
 
 /*Variables*/
 
@@ -61,8 +73,8 @@ long results[3] = {0,0,0};
 int error = 0;
 #endif
 
-String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
-String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
+String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152331 }";
+String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152331 }";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 
@@ -124,11 +136,20 @@ void timerHandler() {
   }
 }
 
-void reset(){
-  wdt_enable(WDTO_15MS);
-  while(1);
-}
+void reset(const char* message) {
+  DEBUGLN(message);
 
+  if (client.connected()) {
+    client.stop();
+  }
+    
+  //HW reset:
+  digitalWrite(resetPin, 0);
+
+  //SW reset:
+  //wdt_enable(WDTO_15MS);
+  //while (1);
+}
 
 
 //function prototypes
@@ -142,6 +163,11 @@ void initEthernet();
 void timerInit();
 
 void setup() {
+
+  //resethez
+  digitalWrite(resetPin, 1);
+  pinMode(resetPin, OUTPUT);
+  
  wdt_disable(); // disable watchdog timer
 #if defined(DEVMODE)
   Serial.begin(9600);
@@ -205,6 +231,90 @@ void initEthernet() {
 
 }
 
+
+int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
+  //  String received = "";
+  valid_pkt_received = false;
+  int count = 0;
+  int tries = 0;
+  char c = '%';
+  //  unsigned long maxwait=millis()+ACK_TIMEOUT;
+  DEBUG("rcvSrvMsg: ");
+  DEBUGLN((String)client.available());
+
+  //  while (client.available()) {
+  // while (c!='\n' && count<250 && maxwait>millis()) {
+  while (c != '\n' && count < 250 && tries < 8000) {
+    c = client.read();
+    tries++;
+    if (c != '\n' && c != '\r' && c != -1) {
+      json[count++] = c;
+    } else {
+      delay(1);
+    }
+  }
+  json[count] = 0; // end of string
+
+  if (count > 0) {
+    DEBUG(count);
+    DEBUG("Received: [");
+    DEBUG(json);
+    DEBUGLN("]");
+
+    StaticJsonBuffer<150> jsonBuffer;
+    //    received.toCharArray(json, received.length());
+    JsonObject& root = jsonBuffer.parseObject(json);
+
+    if (!root.success()) {
+#ifdef DEVMODE      
+      DEBUGLN("parseObject() failed");
+      error++;
+      DEBUG("Errors: ");
+      DEBUGLN((String)error);
+#endif
+      valid_pkt_received = false;
+      return 0;
+    }
+    else {
+      DEBUG("Valid pkt");
+      DEBUG("Errors: ");
+      DEBUGLN((String)error);
+
+      //deviceID = root["DeviceId"];
+      //if (deviceID == hardware_ID) {
+      String uID = root[(String)("UserId")];
+
+      userID = uID;
+      status = root["Status"];
+      // ha userid = 0 és status = 1 akkor ack, ha
+      // userid != 0 akkor start game
+
+      memset(json, 0, 150);
+      valid_pkt_received = true;
+
+      if (userID == 0 && status == 1) {
+        return ACK;
+      } else {
+        if (userID == 0 && status != 0) {
+          return 0;
+        } else {
+          return START;
+        }
+      }
+    }
+  }
+  else {
+    if (idle_state) {
+      ConnectServerDefault();
+    } else {
+      ConnectServer();
+    }
+    return 0;
+  }
+
+}
+
+/*
 int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   String received = "";
   valid_pkt_received = false;
@@ -285,15 +395,15 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   }
   
 }
-}
+}*/
 void ConnectServer(){ //WARNING: BLOCKING STATEMENT
 
   if (!client.connected()) {
     client.stop();
     while (!client.connect(serverIP, serverPort));
     //client.connect(serverIP, serverPort);
-    sendMessageWithTimeout(ready5);
-
+    //sendMessageWithTimeout(ready5);
+    client.println(ready5); //run_tcp alapján
     
 
   }
@@ -304,11 +414,11 @@ void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
 
   if (!client.connected()) {
     client.stop();
-    reset();
+    reset("reset ConnectServerDefault");
     while (!client.connect(serverIP, serverPort));
     //client.connect(serverIP, serverPort);
-    sendMessageWithTimeout(ready);
-
+    //sendMessageWithTimeout(ready);
+    client.println(ready);
 
   }
 
@@ -369,7 +479,7 @@ if(idle_state){
     if (retries >= MAX_RETRIES) {
       
       client.stop();
-      reset();
+      reset("reset sendMessageWithTimeout");
       client.println(ready); // if too many retries happened, sending ready with status 3
 #ifdef DEVMODE
       Serial.println("Max tries reached");
@@ -550,10 +660,9 @@ if (game_over) {
     idle_state = true;
     interruptFlag = false;
     clearData();
+
     
-    
-    
-    
+    reset("reset game_over");
     
   }
 

@@ -26,11 +26,22 @@
 #define DEVMODE
 #endif
 
+#ifdef DEVMODE
+#define DEBUGLN(x) Serial.println(x);Serial.flush();
+#define DEBUG(x) Serial.print(x);Serial.flush();
+#else
+#define DEBUGLN(x) ;
+#define DEBUG(x) ;
+#endif
+
 /* GAME PREFERENCES */
 /*Rowing ip 151-156*/
 #define hardware_ID 153		/*Unique hardware ID used for identification*/
 #define MAX_RETRIES 3		/*Maximum number of retries with acknowledge*/
 #define ACK_TIMEOUT 500		/*Time limit of acknowledge reception*/
+
+/*HW reset megoldás*/
+#define resetPin A5 /*ez az ami a resetre kell kötni*/
 
 /*Variables*/
 
@@ -58,8 +69,8 @@ long start = 0;
 int error = 0;
 #endif
 
-String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
-String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID)+"}}";
+String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152337 }";
+String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152337 }";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 
@@ -96,11 +107,20 @@ void timeout() {
 	timeoutFlag = true;
 }
 
-void reset(){
-  wdt_enable(WDTO_15MS);
-  while(1);
-}
+void reset(const char* message) {
+  DEBUGLN(message);
 
+  if (client.connected()) {
+    client.stop();
+  }
+  
+  //HW reset:
+  digitalWrite(resetPin, 0);
+
+  //SW reset:
+  //wdt_enable(WDTO_15MS);
+  //while (1);
+}
 
 //function prototypes
 int receiveServerMessage();
@@ -115,7 +135,13 @@ void initEthernet();
 void timerInit();
 
 void setup() {
+
+  //resethez
+  digitalWrite(resetPin, 1);
+  pinMode(resetPin, OUTPUT);
+  
   wdt_disable(); // disable watchdog timerdt
+  
 #if defined(DEVMODE)
 	Serial.begin(9600);
 #endif
@@ -323,7 +349,7 @@ void ConnectServerDefault(){ //WARNING: BLOCKING STATEMENT
 
   if (!client.connected()) {
     client.stop();
-    reset();
+    reset("reset ConnectServerDefault");
     while (!client.connect(serverIP, serverPort));
     client.println(ready);
 
@@ -389,7 +415,7 @@ uint8_t sendMessageWithTimeout(String message) {
 
 		if (retries >= MAX_RETRIES) {
      client.stop();
-      reset();
+      reset("reset sendMessageWithTimeout");
       client.println(ready); // if too many retries happened, sending ready with status 3
 #ifdef DEVMODE
 			Serial.println("Max tries reached");
@@ -541,7 +567,8 @@ void loop() {
 		timer_counter = 0;
 		clearData();
 
-
+    //két játék között reset, hogy tiszta lappal induljunk
+    reset("gameOver");
 
 	}
 

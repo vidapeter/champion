@@ -22,6 +22,14 @@
 #define DEVMODE
 #endif
 
+#ifdef DEVMODE
+#define DEBUGLN(x) Serial.println(x);Serial.flush();
+#define DEBUG(x) Serial.print(x);Serial.flush();
+#else
+#define DEBUGLN(x) ;
+#define DEBUG(x) ;
+#endif
+
 /* GAME PREFERENCES */
 /*ip address 192.168.1.141-146*/
 #define hardware_ID 141
@@ -40,7 +48,7 @@
 #define leftLED 2
 
 /*HW reset megoldás*/
-#define resetPin 12 /*ez az ami a resetre kell kötni*/
+#define resetPin A5 /*ez az ami a resetre kell kötni*/
 
 /*Variables*/
 
@@ -63,8 +71,8 @@ int result;
 int error = 0;
 #endif
 
-String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}}";
-String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}}";
+String ready = "{ \"Type\":3,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152318 }";
+String ready5 = "{ \"Type\":5,\"Payload\":{\"DeviceId\":" + (String)(hardware_ID) + "}, \"Ver\":201701152318 }";
 String ack = "{\"Status\":1,\"Type\":1}";
 
 
@@ -101,11 +109,13 @@ void systemTick() {
 }
 
 void reset(const char* message) {
-#ifdef DEVMODE
-  Serial.println(message);
-  Serial.flush();
-#endif
+
+  DEBUGLN(message);
   
+  if (client.connected()) {
+    client.stop();
+  }
+    
   //HW reset:
   digitalWrite(resetPin, 0);
 
@@ -129,18 +139,14 @@ void timeout() {
 
 void rightAction() {
   isRightAction = true;
-#ifdef DEVMODE
-  Serial.println("rightAciton");
-#endif
 
+  DEBUGLN("rightAciton");
 }
 
 void leftAction() {
   isLeftAction = true;
-#ifdef DEVMODE
-  Serial.println("leftAction");
-#endif
 
+  DEBUGLN("leftAction");
 }
 
 
@@ -161,6 +167,8 @@ void setup() {
   //resethez
   digitalWrite(resetPin, 1);
   pinMode(resetPin, OUTPUT);
+
+  wdt_disable(); // disable watchdog timer
 
 #if defined(DEVMODE)
   Serial.begin(9600);
@@ -188,10 +196,8 @@ void setup() {
   timerInit();
   initEthernet();
   sendMessageWithTimeout(ready);
-#ifdef DEVMODE
-  Serial.println("Setup finished");
-#endif
-
+  
+  DEBUGLN("Setup finished");
 
 }
 
@@ -207,22 +213,15 @@ void initEthernet() {
 
 
   delay(1000); // give the Ethernet shield a second to initialize
-#if defined(DEVMODE)
-  Serial.println("connecting...");
-#endif
+
+  DEBUGLN("connecting...");
 
   // if you get a connection, report back via serial:
   if (client.connect(serverIP, serverPort)) {
-#if defined(DEVMODE)
-    Serial.println("connected");
-#endif
-
+    DEBUGLN("connected");
   }
   else {
-    // if you didn't get a connection to the server:
-#if defined(DEVMODE)
-    Serial.println("connection failed");
-#endif
+    reset("connection failed");
   }
 
 }
@@ -234,10 +233,8 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
   int tries = 0;
   char c = '%';
   //  unsigned long maxwait=millis()+ACK_TIMEOUT;
-#if defined(DEVMODE)
-  Serial.print("rcvSrvMsg: " );
-  Serial.println(client.available());
-#endif
+  //DEBUG("rcvSrvMsg: ");
+  //DEBUGLN(client.available());
 
   //  while (client.available()) {
   // while (c!='\n' && count<250 && maxwait>millis()) {
@@ -251,71 +248,51 @@ int receiveServerMessage() { // WARNING: BLOCKING STATEMENT
     }
   }
   json[count] = 0; // end of string
-#if defined(DEVMODE)
-  //  Serial.print("Buffer data bytes utana: " );
-  //  Serial.println(client.available());
-#endif
+  
+  //DEBUG("Buffer data bytes utana: ");
+  //DEBUGLN(client.available());
 
-#if defined(DEVMODE)
-  //Serial.print("Received data:" );
-  //Serial.println(json);
-#endif
+  //DEBUG("Received data: ");
+  //DEBUGLN(json);
 
   if (count > 0) {
-#ifdef DEVMODE
-    Serial.println(count);
-    Serial.print("Received: [" );
-    Serial.print(json);
-    Serial.println("]" );
-#endif
+
+  //DEBUGLN(count);
+  //DEBUG("Received: [");  
+  //DEBUG(json);
+  //DEBUGLN("]");
+
     StaticJsonBuffer<150> jsonBuffer;
     //    received.toCharArray(json, received.length());
     JsonObject& root = jsonBuffer.parseObject(json);
 
     if (!root.success()) {
-#ifdef DEVMODE
-      Serial.println("parseObject() failed");
+#ifdef DEVMODE      
+      DEBUGLN("parseObject() failed");
       error++;
-      Serial.println("Errors: " + (String)error);
+      DEBUGLN("Errors: " + (String)error);
 #endif
       valid_pkt_received = false;
       return 0;
     }
     else {
-#ifdef DEVMODE
-      Serial.println("Valid pkt");
-      Serial.println("Errors: " + (String)error);
-#endif
+      DEBUGLN("Valid pkt");
+      DEBUGLN("Errors: " + (String)error);
+
       //deviceID = root["DeviceId"];
       //if (deviceID == hardware_ID) {
       String uID = root[(String)("UserId")];
-#if defined(DEVMODE)
-      //      Serial.print("x1");
-#endif
 
       userID = uID;
       //type = root["Type"];
       //      timer_delay = root["Result1"];
       //      timer_delay = root["Result"];
-#if defined(DEVMODE)
-      //      Serial.print("x2");
-#endif
+
       status = root["Status"];
-#if defined(DEVMODE)
-      //      Serial.print("x3");
-#endif
+
       // ha userid = 0 és status = 1 akkor ack, ha
       // userid != 0 akkor start game
-#if defined(DEVMODE)
-      //      Serial.print("UId: ");
-      //      Serial.println(userID);
-      //      Serial.print("Type: ");
-      //      Serial.println(type);
-      //      Serial.print("Delay: ");
-      //      Serial.println(timer_delay);
-      //      Serial.print("Status: ");
-      //      Serial.println(status);
-#endif
+
       memset(json, 0, 150);
       valid_pkt_received = true;
 
@@ -398,9 +375,7 @@ uint8_t sendMessageWithTimeout(String message) {
     if (ack) {
       MsTimer2::stop();
 
-#ifdef DEVMODE
-      Serial.println("ACK received");
-#endif
+      DEBUGLN("ACK received");
       break;
     }
     else {
@@ -409,9 +384,7 @@ uint8_t sendMessageWithTimeout(String message) {
       timeoutFlag = false;
       MsTimer2::start();
 
-#ifdef DEVMODE
-      Serial.println("Timeout: " + (String)retries);
-#endif
+      DEBUGLN("Timeout: " + (String)retries);
 
     }
     client.stop(); // no ack, disconnecting
@@ -422,9 +395,8 @@ uint8_t sendMessageWithTimeout(String message) {
       reset("sendMessageWithTimeout");
       ///resetting, no mentionable below
       client.println(ready); // if too many retries happened
-#ifdef DEVMODE
-      Serial.println("Max tries reached");
-#endif
+
+      DEBUGLN("Max tries reached");
 
       break;
 
@@ -477,19 +449,11 @@ void loop() {
 
   if (idle_state) {
 
-#ifdef DEVMODE
-    //Serial.println("Idle state");
-    //delay(50);
-#endif
-
     game_started = false;
     int status = 0;
     ConnectServerDefault();
     status = receiveServerMessage(); // waiting for real messages
-#ifdef DEVMODE
-    //status = START;
-    //valid_pkt_received = true;
-#endif
+
     if (valid_pkt_received) {
 
       switch (status) {
@@ -500,9 +464,7 @@ void loop() {
           clearData();
           break; //skip packet
         case START:
-#ifdef DEVMODE
-          Serial.println("Game started");
-#endif
+          DEBUGLN("Game started");
 
           sendMessage(ack); //simple ack message, no answer
           Timer1.start();
@@ -515,9 +477,6 @@ void loop() {
           selectVideo();
           //itt kellene egy olyan késleltetés, hogy akkor induljon a video, amikor a játék
 
-#ifdef DEVMODE
-          //    Serial.println(selectedVideo);
-#endif
 
           break;
 
@@ -536,19 +495,14 @@ void loop() {
   if (game_started) {
     //start and handle the game here
 
-#ifdef DEVMODE
-    //Serial.println("Game is running "+ (String)(game_over)+ " idle "+ (String)(idle_state));
-#endif
-
     if (timerAction) {
       tick++;
       if (isRightAction ^ isLeftAction) {
-        Serial.println("INT");
+        //Serial.println("INT"); ///?? ez miért volt itt devmode-on kívül?
+
         if (isLeftAction) {
 
-#ifdef DEVMODE
-          Serial.println("leftAction");
-#endif
+          DEBUGLN("leftAction");
 
           results[tick] = 1;
           isLeftAction = false;
@@ -557,9 +511,7 @@ void loop() {
         }
         if (isRightAction) {
 
-#ifdef DEVMODE
-          Serial.println("rightAction");
-#endif
+          DEBUGLN("rightAction");
 
           results[tick] = 2;
           isRightAction = false;
@@ -576,9 +528,8 @@ void loop() {
 
       timerAction = false;
 
-#ifdef DEVMODE
-      Serial.println(tick);
-#endif
+      DEBUGLN(tick);
+
     }
 
     if (tick == (MAX_CYCLE - 1)) {
@@ -618,6 +569,8 @@ void loop() {
       Serial.print(results[i], DEC);
       Serial.print(" ");
     }
+    Serial.println("");
+    Serial.flush();
 #endif
 
     //end of game over handling
